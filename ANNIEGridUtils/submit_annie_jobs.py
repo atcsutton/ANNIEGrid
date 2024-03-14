@@ -162,7 +162,7 @@ if __name__=='__main__':
 
     debug_args = parser.add_argument_group('Debugging options', 'These are optional arguments that are useful for debugging or testing')
     debug_args.add_argument('--print_jobsub',    action='store_true', help='Print jobsub command')
-    debugging_args.add_argument('--test',        action='store_true', help='Do not actually do anything, just run tests and print jobsub cmd')
+    debug_args.add_argument('--test',        action='store_true', help='Do not actually do anything, just run tests and print jobsub cmd')
     debug_args.add_argument('--test_submission', action='store_true', help='Override other arguments given to submit a test to the grid.'\
                                                                            'It will run 1 job with 3 events and write the output to '\
                                                                            '/pnfs/nova/scratch/users/<user>/test_jobs/<date>_<time>')
