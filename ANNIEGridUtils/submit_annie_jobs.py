@@ -362,5 +362,4 @@ if __name__=='__main__':
         sys.stdout.flush()
         sys.stderr.flush()
 
-    if not args.test:
-        os.system(jobsub_cmd)
+    os.system(jobsub_cmd)
