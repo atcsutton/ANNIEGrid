@@ -1,9 +1,9 @@
 # ANNIEGrid
 Tools for the ANNIE experiment to work on the grid
 
-Before using any of the tools you must setup SAM on the gpvm:
+Before using any of the tools you must setup them up on the gpvm:
 ```
-source setup_sam.sh
+source setup_ANNIEGridUtils.sh
 ```
 
 
