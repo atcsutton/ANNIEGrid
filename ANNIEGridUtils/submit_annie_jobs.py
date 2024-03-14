@@ -214,7 +214,7 @@ if __name__=='__main__':
     ##########################
     njobs = args.njobs
     files_per_job = args.files_per_job
-    #samweb = samweb_client.SAMWebClient(experiment='annie')
+    samweb = samweb_client.SAMWebClient(experiment='annie')
         
     if files_per_job > 0 and njobs > 0:
         jobsub_opts += ['-N %d' %njobs]
