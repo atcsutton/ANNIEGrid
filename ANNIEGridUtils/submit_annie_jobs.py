@@ -49,6 +49,43 @@ def build_jobsub_cmd(jobsub_opts):
     
 #######################################################################################
 if __name__=='__main__':
+
+    while "-f" in sys.argv or "--file" in sys.argv:
+        ### Allow args to be passed in as a plain text file.
+        ### We make a preliminary parser get these arguments out for two reasons:
+        ###    1)  Maintain standard -h, --help functionality
+        ###    2)  Avoid necessity required arguments in initial parsing,
+        ###        allow them to be missing, but find them in the file.
+        preliminary_parser = argparse.ArgumentParser(prog=prog, description='Submit nova art job')
+
+        preliminary_parser.add_argument('-f', '--file',
+                        help='''Text file containing any arguments to this utility.  Multiple allowed.
+                        Arguments should look just like they would on the command line,
+                        but the parsing of this file is whitespace insenstive.
+                        Commented lines will be identified with the # character and removed. ''', type=str, action='append')
+        pre_args, unknown = preliminary_parser.parse_known_args()
+
+        # Remove pre_args from sys.argv so they are not processed again
+        sys.argv = [x for x in sys.argv if x not in [ "-f", "--file"]]
+
+        if pre_args.file:
+            for filepath in pre_args.file:
+                index = sys.argv.index(filepath)
+                sys.argv.remove(filepath)
+                if os.path.isfile(filepath):
+                    fullpath = filepath
+                else:
+                    fullpath = find_file(["$NOVAGRIDUTILS_DIR/configs/"],filepath)
+                text = open(fullpath, 'r').read()
+                text = remove_comments(text) # Strip out commented lines
+                newargs = []
+                for line in text.splitlines():
+                    # Insert arguments into list in order
+                    # where the -f appeared
+                    newargs += line.split()
+                sys.argv[index:index] = newargs
+
+    
     parser = argparse.ArgumentParser(description="Submit ANNIE jobs", add_help=False)
 
     required_args = parser.add_argument_group('Required arguments', 'These arguments must be supplied')
@@ -72,18 +109,19 @@ if __name__=='__main__':
     optional_args.add_argument('--copy_out_script',                help='Use the supplied COPY_OUT_SCRIPT (located on pnfs). Otherwise all files will be copied as is to the DEST.')
     optional_args.add_argument('--no_rename', action='store_true', help='By default, output file we be renamed by prepending the input file name for uniqueness. '\
                                                                         'Using this flag will turn off that "feature"')
+    optional_args.add_argument('--export',                         help='Export environment variable to the grid. It must be already set in your current environment. You can pass in multiple variables. ')
 
     job_control_args = parser.add_argument_group('Job control args', 'Optional arguments for additional job control')
     job_control_args.add_argument('--njobs',             type=int, default=0,       help='Number of jobs to submit')
     job_control_args.add_argument('--files_per_job',     type=int, default=0,       help='Number of files per job. If zero, calculate from number of jobs')
     job_control_args.add_argument('--nevents',           type=int, default=-1,      help='Number of events per file to process')
-    job_control_args.add_argument('--disk',              type=int, default=10000,   help='Local disk space requirement for worker node in MB.')
-    job_control_args.add_argument('--memory',            type=int, default=1900,    help='Local memory requirement for worker node in MB.')
+    job_control_args.add_argument('--disk',              type=int, default=10000,   help='Local disk space requirement for worker node in MB. (default 10000MB (10GB))')
+    job_control_args.add_argument('--memory',            type=int, default=1900,    help='Local memory requirement for worker node in MB. (default 1900MB (1.9GB)')
     job_control_args.add_argument('--cpu',               type=int, default=1,       help='Request worker nodes that have at least NUMBER cpus')    
     job_control_args.add_argument('--expected_lifetime',           default="10800", help='Expected job lifetime (default is 10800s=3h). '\
                                                                                          'Valid values are an integer number of seconds or one of '\
                                                                                          '\"short\" (6h), \"medium\" (12h) or \"long\" (24h, jobsub default)')
-    job_control_args.add_argument('--grace_memory',                default='1024',  help='Auto-release jobs which become held due to insufficient memory '\
+    job_control_args.add_argument('--grace_memory',                default='1024',  help='Auto-releese jobs which become held due to insufficient memory '\
                                                                                          'and resubmit with this additional memory (in MB)')
     job_control_args.add_argument('--grace_lifetime',              default='10800', help='Auto-release jobs which become held due to insufficient lifetime '\
                                                                                          'and resubmit with this additional lifetime (in seconds)')
@@ -99,7 +137,11 @@ if __name__=='__main__':
                                                                            '/pnfs/nova/scratch/users/<user>/test_jobs/<date>_<time>')
 
     support_args = parser.add_argument_group("HELP!", "")
-    support_args.add_argument("-h", "--help", action="help", help='Show this help message and exit')
+    support_args.add_argument("-h", "--help", action="help",   help='Show this help message and exit')
+    support_args.add_argument('-f', '--file', action='append', help='''Text file containing any arguments to this utility.  Multiple allowed.
+                                                                       Arguments should look just like they would on the command line,
+                                                                       but the parsing of this file is whitespace insenstive.
+                                                                       Comments will be identified with the # character and removed. ''')
 
     args = parser.parse_args()
 
@@ -236,6 +278,9 @@ if __name__=='__main__':
                     fail("Copyout script %s must be in /pnfs/annie/" %args.copy_out_script)
 
                     jobsub_opts += ['-f dropbox://%s' % args.copy_out_script]
+
+    if args.export:
+        export_to_annie_sam_wrap += args.export
 
         
     ##########################################################
