@@ -2,10 +2,13 @@
 Tools for the ANNIE experiment to work on the grid
 
 Before using any of the tools you must setup SAM on the gpvm:
-```source setup_sam.sh```
+```
+source setup_sam.sh
+```
 
 You should only ever need to directly use `submit_annie_jobs.py`. Here are all the inputs:
-```usage: submit_annie_jobs.py --jobname JOBNAME --dest DEST --config CONFIG --input_file_config INPUT_FILE_CONFIG --defname DEFNAME [--input_file INPUT_FILE]
+```
+usage: submit_annie_jobs.py --jobname JOBNAME --dest DEST --config CONFIG --input_file_config INPUT_FILE_CONFIG --defname DEFNAME [--input_file INPUT_FILE]
                             [--tarball TARBALL] [--input_config_var INPUT_CONFIG_VAR] [--copy_out_script COPY_OUT_SCRIPT] [--no_rename] [--njobs NJOBS]
                             [--files_per_job FILES_PER_JOB] [--nevents NEVENTS] [--disk DISK] [--memory MEMORY] [--cpu CPU] [--expected_lifetime EXPECTED_LIFETIME]
                             [--grace_memory GRACE_MEMORY] [--grace_lifetime GRACE_LIFETIME] [--continue_project PROJECT_NAME] [--exclude_site SITE] [--print_jobsub]
