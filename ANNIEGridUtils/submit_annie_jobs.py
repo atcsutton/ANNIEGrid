@@ -66,7 +66,7 @@ def build_jobsub_cmd(jobsub_opts):
         
     # Add tarball and SAM wrapper script with its options
     if args.tarball:
-        jobsub_opts += ['--tar_file_name dropbox://' + args.user_tarball]
+        jobsub_opts += ['--tar_file_name dropbox://' + args.tarball]
 
     jobsub_opts += ['file://' + annie_sam_wrap_cmd]
     jobsub_opts += [' ' + ' '.join(annie_sam_wrap_opts)]
