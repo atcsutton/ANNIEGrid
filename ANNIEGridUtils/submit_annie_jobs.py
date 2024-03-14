@@ -222,7 +222,7 @@ if __name__=='__main__':
             
     elif files_per_job > 0:
         # Files per job defined, but njobs not. Calculate on the fly
-        num_files = 10 #samweb.countFiles(defname=args.defname)
+        num_files = samweb.countFiles(defname=args.defname)
         njobs=(old_div(num_files, files_per_job)) +1
         
         jobsub_opts += ['-N %d' %njobs]
@@ -330,7 +330,7 @@ if __name__=='__main__':
     sam_station=os.getenv("SAM_STATION")
     if start_project and not args.test:
         print('starting %s' %project_name)
-        start_proj_retval = samweb.startProject(project_name, defname=defname,
+        start_proj_retval = samweb.startProject(project_name, defname=args.defname,
                             group='annie', station=sam_station)        
 
     os.putenv("SAM_PROJECT_NAME",project_name)
