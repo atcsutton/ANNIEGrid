@@ -30,6 +30,7 @@ source /cvmfs/fermilab.opensciencegrid.org/products/common/etc/setup
 export PRODUCTS=${PRODUCTS}:/cvmfs/larsoft.opensciencegrid.org/products/
 setup fife_utils
 
+export GROUP="annie"
 export GRID_USER=$USER
 export EXPERIMENT="annie"
 export SAM_EXPERIMENT=$EXPERIMENT
