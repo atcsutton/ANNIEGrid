@@ -37,4 +37,7 @@ export SAM_STATION=$EXPERIMENT
 export IFDH_BASE_URI="http://samweb.fnal.gov:8480/sam/annie/api"
 export IFDH_FORCE="gsiftp"
 
+export ANNIEGRIDUTILSDIR="$( dirname -- "$( readlink -f -- "$0"; )"; )"
+export PATH=$PATH:"${ANNIEGRIDUTILSDIR}/ANNIEGridUtils"
+
 setup_fnal_security
