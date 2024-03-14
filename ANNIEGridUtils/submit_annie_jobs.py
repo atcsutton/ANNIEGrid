@@ -61,7 +61,7 @@ def build_jobsub_cmd(jobsub_opts):
     jobsub_cmd += ' ' + ' '.join([arg for arg in jobsub_opts])
 
     # Add exported environment variables
-    for export in export_to_art_sam_wrap:
+    for export in export_to_annie_sam_wrap:
         jobsub_opts += ['    -e ' + export]
         
     # Add tarball and SAM wrapper script with its options
