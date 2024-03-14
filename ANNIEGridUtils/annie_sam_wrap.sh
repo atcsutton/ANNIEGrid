@@ -213,6 +213,8 @@ rename_output_files() {
 source /cvmfs/fermilab.opensciencegrid.org/products/common/etc/setup
 setup ifdhc
 
+printenv
+
 topDir=$_CONDOR_JOB_IWD
 
 #-------------------------------------------------------------------------------
