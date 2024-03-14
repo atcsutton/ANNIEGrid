@@ -10,7 +10,7 @@ from past.utils import old_div
 import os, sys, stat, pwd, re
 import argparse
 import datetime
-import samweb_client
+#import samweb_client
 import string
 import tokenize
 import io
@@ -71,7 +71,7 @@ if __name__=='__main__':
                                                                         'while for DataDecoder this argument is not required.')
     optional_args.add_argument('--copy_out_script',                help='Use the supplied COPY_OUT_SCRIPT (located on pnfs). Otherwise all files will be copied as is to the DEST.')
     optional_args.add_argument('--no_rename', action='store_true', help='By default, output file we be renamed by prepending the input file name for uniqueness. '\
-                                                                        'Using this flag will turn off that "feature"'
+                                                                        'Using this flag will turn off that "feature"')
 
     job_control_args = parser.add_argument_group('Job control args', 'Optional arguments for additional job control')
     job_control_args.add_argument('--njobs',             type=int, default=0,       help='Number of jobs to submit')
@@ -179,7 +179,8 @@ if __name__=='__main__':
     # Jobsub options
     if args.exclude_site:
         for isite in args.exclude_site:
-            jobsub_opts += [ "--append_condor_requirements='(TARGET.GLIDEIN_Site\ isnt\ \\\"%s\\\")'" % isite ]
+            jobsub_opts += [ "--append_condor_requirements='(TARGET.GLIDEIN_Site\\ isnt\\ \\\"%s\\\")'" % isite ]
+            #jobsub_opts += [ "--append_condor_requirements='(TARGET.GLIDEIN_Site\ isnt\ \\\"%s\\\")'" % isite ]
 
     if args.disk:
         disk_opt="--disk=%sMB" % (args.disk)
