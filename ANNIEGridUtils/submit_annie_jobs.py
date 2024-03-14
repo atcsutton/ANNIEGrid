@@ -10,7 +10,7 @@ from past.utils import old_div
 import os, sys, stat, pwd, re
 import argparse
 import datetime
-#import samweb_client
+import samweb_client
 import string
 import tokenize
 import io
