@@ -115,7 +115,7 @@ if __name__=='__main__':
     job_control_args.add_argument('--files_per_job',     type=int, default=0,       help='Number of files per job. If zero, calculate from number of jobs')
     job_control_args.add_argument('--nevents',           type=int, default=-1,      help='Number of events per file to process')
     job_control_args.add_argument('--disk',              type=int, default=10000,   help='Local disk space requirement for worker node in MB. (default 10000MB (10GB))')
-    job_control_args.add_argument('--memory',            type=int, default=1900,    help='Local memory requirement for worker node in MB. (default 1900MB (1.9GB)')
+    job_control_args.add_argument('--memory',            type=int, default=1900,    help='Local memory requirement for worker node in MB. (default 1900MB (1.9GB))')
     job_control_args.add_argument('--cpu',               type=int, default=1,       help='Request worker nodes that have at least NUMBER cpus')    
     job_control_args.add_argument('--expected_lifetime',           default="10800", help='Expected job lifetime (default is 10800s=3h). '\
                                                                                          'Valid values are an integer number of seconds or one of '\
