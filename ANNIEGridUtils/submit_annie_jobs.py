@@ -48,6 +48,7 @@ def build_jobsub_cmd(jobsub_opts):
     
 #######################################################################################
 if __name__=='__main__':
+    prog=os.path.basename(sys.argv[0])
 
     while "-f" in sys.argv or "--file" in sys.argv:
         ### Allow args to be passed in as a plain text file.
@@ -55,7 +56,7 @@ if __name__=='__main__':
         ###    1)  Maintain standard -h, --help functionality
         ###    2)  Avoid necessity required arguments in initial parsing,
         ###        allow them to be missing, but find them in the file.
-        preliminary_parser = argparse.ArgumentParser(prog=prog, description='Submit nova art job')
+        preliminary_parser = argparse.ArgumentParser(prog=prog, description='Submit annie grid job')
 
         preliminary_parser.add_argument('-f', '--file',
                         help='''Text file containing any arguments to this utility.  Multiple allowed.
@@ -85,7 +86,7 @@ if __name__=='__main__':
                 sys.argv[index:index] = newargs
 
     
-    parser = argparse.ArgumentParser(description="Submit ANNIE jobs", add_help=False)
+    parser = argparse.ArgumentParser(description="Submit ANNIE grid job", add_help=False)
 
     required_args = parser.add_argument_group('Required arguments', 'These arguments must be supplied')
     required_args.add_argument('--jobname',           required=True, help='Job name');
