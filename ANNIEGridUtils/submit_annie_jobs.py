@@ -17,7 +17,7 @@ import subprocess
 
 jobsub_opts = []
 
-annie_sam_wrap_cmd = 'annie_sam_wrap.sh'
+annie_sam_wrap_cmd =os.getenv('ANNIEGRIDUTILSDIR')+'/annie_sam_wrap.sh'
 annie_sam_wrap_opts = []
 
 export_to_annie_sam_wrap = ['GRID_USER', 'EXPERIMENT', 'SAM_EXPERIMENT', 'SAM_STATION', 'SAM_PROJECT_NAME', 'IFDH_BASE_URI', 'IFDH_FORCE']
