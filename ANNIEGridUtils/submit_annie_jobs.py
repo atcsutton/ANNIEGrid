@@ -25,6 +25,36 @@ export_to_annie_sam_wrap = ['GRID_USER', 'EXPERIMENT', 'SAM_EXPERIMENT', 'SAM_ST
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
 user=os.getenv("USER")
 
+def remove_comments(src):
+    '''
+    This reads tokens using tokenize.generate_tokens and recombines them
+    using tokenize.untokenize, and skipping comment/docstring tokens in between
+    '''
+    f = io.StringIO(src.encode().decode())
+    class SkipException(Exception): pass
+    processed_tokens = []
+    last_token = None
+    # go thru all the tokens and try to skip comments and docstrings
+    for tok in tokenize.generate_tokens(f.readline):
+        t_type, t_string, t_srow_scol, t_erow_ecol, t_line = tok
+
+        try:
+            if t_type == tokenize.COMMENT:
+                raise SkipException()
+
+            elif t_type == tokenize.STRING:
+
+                if last_token is None or last_token[0] in [tokenize.INDENT]:
+                    pass
+
+        except SkipException:
+            pass
+        else:
+            processed_tokens.append(tok)
+
+        last_token = tok
+
+    return tokenize.untokenize(processed_tokens)
 
 def build_jobsub_cmd(jobsub_opts):
     jobsub_cmd = 'jobsub_submit'
