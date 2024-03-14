@@ -1,5 +1,4 @@
-#!/usr/local/bin/python3
-#/bin/env python3
+#!/bin/env python3
 
 from __future__ import print_function
 from __future__ import division
