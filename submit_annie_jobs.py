@@ -15,6 +15,8 @@ import tokenize
 import io
 import subprocess
 
+excluded_sites = [ 'Omaha', 'Swan', 'Wisconsin']
+
 jobsub_opts = []
 
 annie_sam_wrap_cmd =os.getenv('ANNIEGRIDUTILSDIR')+'/annie_sam_wrap.sh'
@@ -186,10 +188,11 @@ if __name__=='__main__':
 
     debug_args = parser.add_argument_group('Debugging options', 'These are optional arguments that are useful for debugging or testing')
     debug_args.add_argument('--print_jobsub',    action='store_true', help='Print jobsub command')
-    debug_args.add_argument('--test',        action='store_true', help='Do not actually do anything, just run tests and print jobsub cmd')
+    debug_args.add_argument('--test',            action='store_true', help='Do not actually do anything, just run tests and print jobsub cmd')
     debug_args.add_argument('--test_submission', action='store_true', help='Override other arguments given to submit a test to the grid.'\
                                                                            'It will run 1 job with 3 events and write the output to '\
                                                                            '/pnfs/nova/scratch/users/<user>/test_jobs/<date>_<time>')
+    debug_args.add_argument("--kill_after", metavar="SEC", type=int, help='If job is still running after this many seconds, kill in such a way that a log will be returned')
 
     support_args = parser.add_argument_group("HELP!", "")
     support_args.add_argument("-h", "--help", action="help",   help='Show this help message and exit')
@@ -297,8 +300,11 @@ if __name__=='__main__':
     jobsub_opts += [resource_opt]
     
     if args.exclude_site:
-        for isite in args.exclude_site:
-            jobsub_opts += [ "--append_condor_requirements='(TARGET.GLIDEIN_Site\\ isnt\\ \\\"%s\\\")'" % isite ]
+        for isite in args.exclude_site:            
+            excluded_sites += [ isite ]
+            
+    for isite in excluded_sites:
+        jobsub_opts += [ "--append_condor_requirements='(TARGET.GLIDEIN_Site\\ isnt\\ \\\"%s\\\")'" % isite ]
 
     if args.disk:
         disk_opt="--disk=%sMB" % (args.disk)
@@ -479,6 +485,9 @@ if __name__=='__main__':
         annie_sam_wrap_opts += ['--rename_outputs']
     if not args.no_job_dirs:
         annie_sam_wrap_opts += ['--job_dirs']
+    if args.kill_after:
+        annie_sam_wrap_opts += [ "--self_destruct_timer %d" % args.kill_after ]
+
     
     
     ############################

@@ -26,6 +26,7 @@ cpsc=""
 topDir=""
 rename_outputs=false
 job_dirs=false
+self_destruct_timeout=""
 earlysources=""
 earlyscripts=""
 sources=""
@@ -75,6 +76,11 @@ Usage:
 
     -r|--rename_outputs
         rename the output files by prepending the input file name
+
+    --self_destruct_timer seconds
+        suicide if the executable runs more than seconds seconds;
+        usually only use this if you have jobs that hang and you
+        get no output back
 	
     --earlysource file:arg:arg:...
     --earlyscript file:arg:arg:...
@@ -89,7 +95,7 @@ Usage:
 EOF
 }
 
-VALID_ARGS=$(getopt -o hrjc:L:n:i:v:o: --long help,rename_outputs,job_dirs,config:,limit:,nevents:,input_file_config:,input_config_var:,copy_out_script:,earlysource:,earlyscript:,source:,prescript: -- "$@")
+VALID_ARGS=$(getopt -o hrjc:L:n:i:v:o: --long help,rename_outputs,job_dirs,config:,limit:,nevents:,input_file_config:,input_config_var:,copy_out_script:,self_destruct_timer:,earlysource:,earlyscript:,source:,prescript: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1;
 fi
@@ -107,6 +113,7 @@ while [ : ]; do
 	-i|--input_file_config) ifconf="$2";  shift;  shift; continue;;
 	-v|--input_config_var)  ivar="$2";    shift;  shift; continue;;
 	-o|--copy_out_script)   cpsc="$2";    shift;  shift; continue;;
+	--self_destruct_timer) self_destruct_timeout=$2; shift; shift; continue;;
 	--earlysource)   earlysources="$earlysources \"$2\"":; shift; shift; continue;;
 	--earlyscript)   earlyscripts="$earlyscripts \"$2\"":; shift; shift; continue;;
 	--source)        sources="$sources \"$2\"":;           shift; shift; continue;;
@@ -318,6 +325,49 @@ rename_output_files() {
 }
 
 ################################################################################
+# Self destruct after n seconds
+################################################################################
+kill_proc_kids_after_n() {
+    watchpid=$1
+    after_secs=$2
+    rate=10
+    sofar=0
+
+    start=`date +%s`
+    echo "Starting self-destruct timer of $after_secs at $start"
+
+    while kill -0 $watchpid 2> /dev/null && [ $sofar -lt $after_secs ]
+    do
+        sleep $rate
+        now=`date +%s`
+        sofar=$((now - start))
+        printf "."
+    done
+    printf "\n"
+
+    if kill -0 $watchpid
+    then
+       pslist=`ps -ef | grep " $watchpid " | grep -v grep`
+       printf "Timed out after $sofar seconds...\n"
+       for signal in 15 9
+       do
+           echo "$pslist" |
+              while read uid pid ppid rest
+              do
+                 if [ $ppid = $watchpid ]
+                 then
+                     echo "killing -$signal $uid $pid $ppid $rest"
+                     kill -$signal $pid
+                 fi
+              done
+           echo "killing -$signal $watchpid"
+           kill -$signal $watchpid
+       done
+    fi
+}
+
+
+################################################################################
 # The meat and potatoes
 ################################################################################
 #-------------------------------------------------------------------------------
@@ -358,6 +408,14 @@ fi
 if [ -n "${ivar}" ]; then
     echo "Input file config variable is ${ivar}"
 fi
+
+
+# Set the self destruct
+if [ x"$self_destruct_timeout" != x ]
+then
+   kill_proc_kids_after_n $$ $self_destruct_timeout &
+fi
+
 
 #-------------------------------------------------------------------------------
 # if we don't enough space, try again for a bit before giving up
@@ -571,11 +629,13 @@ done
 
 if [ ${job_dirs} ]; then
    if [ -n "${JOBSUBJOBSECTION}" ]; then
-       DEST=${DEST}/${JOBSUBJOBSECTION}
+       newdest=${DEST}/job_${JOBSUBJOBSECTION}
    else
-       DEST=${DEST}/${PROCESS}
+       newdest=${DEST}/job_${PROCESS}
    fi
-   ifdh mkdir_p ${DEST}
+   echo "new destination will be ${newdest}"
+   ifdh mkdir_p ${newdest}
+   DEST=${newdest}
 fi
 
 if [ -n "${cpsc}" ]; then
