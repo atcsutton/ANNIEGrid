@@ -569,7 +569,7 @@ done
 # Now to copy things out to $DEST
 #-------------------------------------------------------------------------------
 
-if [ ${job_dirs} ]: then
+if [ ${job_dirs} ]; then
    if [ -n "${JOBSUBJOBSECTION}" ]; then
        DEST=${DEST}/${JOBSUBJOBSECTION}
    else
