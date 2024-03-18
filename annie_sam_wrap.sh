@@ -77,6 +77,9 @@ Usage:
     -r|--rename_outputs
         rename the output files by prepending the input file name
 
+    -j|--job_dirs
+        make destination directories based on the job numbers.
+
     --self_destruct_timer seconds
         suicide if the executable runs more than seconds seconds;
         usually only use this if you have jobs that hang and you
@@ -305,21 +308,45 @@ update_input_file() {
 ################################################################################
 rename_output_files() {
     oldwd=`pwd`
-    prefix=`basename ${fname}`
 
     echo ""
     echo "Renaming output files"
     cd ${outputDir}
+
     if [ ! -f "renamed_files.txt" ]; then
 	touch renamed_files.txt
 	echo "renamed_files.txt" >> renamed_files.txt
     fi
 
-    # just looking for files that have not been renamed
-    for outfile in `ls | grep -vFf renamed_files.txt`; do
-	mv ${outfile} ${prefix}.${outfile}
-	echo ${prefix}.${outfile} >> renamed_files.txt
-    done
+    # If using job dirs then prepend job and file number
+    # otherwise prepend the input file name
+    if $job_dirs; then
+	if [ -z "${filenum}" ]; then
+	    filenum=0
+	else
+	    filenum=$((filenum + 1))
+	fi
+	
+	if [ -n "${JOBSUBJOBSECTION}" ]; then
+	    jobnum=${JOBSUBJOBSECTION}
+	else
+	    jobnum=${PROCESS}
+	fi
+
+	prefix="j${jobnum}_f${filenum}"
+	# just looking for files that have not been renamed
+	for outfile in `ls | grep -vFf renamed_files.txt`; do
+	    mv ${outfile} ${prefix}.${outfile}
+	    echo ${prefix}.${outfile} >> renamed_files.txt
+	done
+	
+    else
+	prefix=`basename ${fname}`	
+	# just looking for files that have not been renamed
+	for outfile in `ls | grep -vFf renamed_files.txt`; do
+	    mv ${outfile} ${prefix}.${outfile}
+	    echo ${prefix}.${outfile} >> renamed_files.txt
+	done
 
     cd ${oldpwd}
 }
@@ -602,7 +629,7 @@ while [ "$res" = 0 ]; do
         ifdh updateFileStatus ${projurl}  ${consumer_id} ${fname} skipped
     fi
 
-    if [ ${rename_outputs} ]; then
+    if ${rename_outputs}; then
 	rename_output_files
     fi 
 done
@@ -626,8 +653,7 @@ done
 #-------------------------------------------------------------------------------
 # Now to copy things out to $DEST
 #-------------------------------------------------------------------------------
-
-if [ ${job_dirs} ]; then
+if ${job_dirs}; then
    if [ -n "${JOBSUBJOBSECTION}" ]; then
        newdest=${DEST}/job_${JOBSUBJOBSECTION}
    else
