@@ -576,6 +576,7 @@ if [ ${job_dirs} ]: then
        DEST=${DEST}/${PROCESS}
    fi
    ifdh mkdir_p ${DEST}
+fi
 
 if [ -n "${cpsc}" ]; then
     # use custom script
