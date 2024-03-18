@@ -35,7 +35,8 @@ export GRID_USER=$USER
 export EXPERIMENT="annie"
 export SAM_EXPERIMENT=$EXPERIMENT
 export SAM_STATION=$EXPERIMENT
-export IFDH_BASE_URI="http://samweb.fnal.gov:8480/sam/annie/api"
+#export IFDH_BASE_URI="https://samwebgpvm05.fnal.gov:8483/sam/annie/api"
+export IFDH_BASE_URI="https://samweb.fnal.gov:8483/sam/annie/api"
 export IFDH_FORCE="gsiftp"
 
 fullpath="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"

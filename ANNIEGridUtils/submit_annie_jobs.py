@@ -6,7 +6,7 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import str
 from past.utils import old_div
-import os, sys, stat, pwd, re
+import os, sys, stat, pwd, re, glob
 import argparse
 import datetime
 import samweb_client
@@ -21,6 +21,18 @@ annie_sam_wrap_cmd =os.getenv('ANNIEGRIDUTILSDIR')+'/annie_sam_wrap.sh'
 annie_sam_wrap_opts = []
 
 export_to_annie_sam_wrap = ['GRID_USER', 'EXPERIMENT', 'SAM_EXPERIMENT', 'SAM_STATION', 'SAM_PROJECT_NAME', 'IFDH_BASE_URI', 'IFDH_FORCE']
+
+# setup usage models to use and  sites we're going to use
+usage_models = ['DEDICATED,OPPORTUNISTIC']
+
+input_files = []
+
+early_sources = []
+early_scripts = []
+sources = []
+pre_scripts = []
+post_scripts = []
+
 
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
 user=os.getenv("USER")
@@ -63,9 +75,7 @@ def build_jobsub_cmd(jobsub_opts):
     jobsub_opts += ['-e ' + export for export in export_to_annie_sam_wrap]
         
     # Add tarball and SAM wrapper script with its options
-    if args.tarball:
-        jobsub_opts += ['--tar_file_name dropbox://' + args.tarball]
-
+    jobsub_opts += ['--tar_file_name dropbox://' + args.tarball]
     jobsub_opts += ['file://' + annie_sam_wrap_cmd]
     jobsub_opts += [' ' + ' '.join(annie_sam_wrap_opts)]
 
@@ -124,23 +134,36 @@ if __name__=='__main__':
                                                                           'eg. for LoadWCSim this would be \"LoadWCSimConfig\", '\
                                                                           'while for DataDecoder this would be \"my_files.txt\"')
     required_args.add_argument('--defname',           required=True, help='SAM dataset definition to run over')
-
+    required_args.add_argument('--tarball',           required=True, help='If you want to use your local ToolAnalysis then pass in a tarball here.'\
+                                                                          'Otherwise the base build from the singularity container will be used.'\
+                                                                          'Note: you DO NOT have to move your tarball to your pnfs scratch area.')
     
     optional_args = parser.add_argument_group('Other optional arguments', 'These arguments are optional')
-    optional_args.add_argument('--input_file', action='append',    help='Copy an extra file to the grid node. You can use this multiple times.')
-    optional_args.add_argument('--tarball',                        help='If you want to use your local ToolAnalysis then pass in a tarball here.'\
-                                                                        'Otherwise the base build from the singularity container will be used.'\
-                                                                        'Note: you DO NOT have to move your tarball to your pnfs scratch area.')
     optional_args.add_argument('--input_config_var',               help='Variable name in the input_file_config that defines what the input is. '\
                                                                         'eg. for LoadWCSim this would be required and set to \"InputFile\", '\
                                                                         'while for DataDecoder this argument is not required.')
-    optional_args.add_argument('--copy_out_script',                help='Use the supplied COPY_OUT_SCRIPT (located on pnfs). Otherwise all files will be copied as is to the DEST.')
-    optional_args.add_argument('--no_rename', action='store_true', help='By default, output file we be renamed by prepending the input file name for uniqueness. '\
-                                                                        'Using this flag will turn off that "feature"')
-    optional_args.add_argument('--export',                         help='Export environment variable to the grid. It must be already set in your current environment. You can pass in multiple variables. ')
+    optional_args.add_argument('--no_job_dirs', action='store_true', help='By default, directories will be created in DEST for each job number in order to prevent '\
+                                                                          'overpopulating pnfs directories. Using this flag will turn off that feature.')
+    optional_args.add_argument('--no_rename',   action='store_true', help='By default, output file we be renamed by prepending the input file name for uniqueness. '\
+                                                                          'Using this flag will turn off that feature')                                                                        
+    optional_args.add_argument('--copy_out_script',                  help='Use the supplied COPY_OUT_SCRIPT (located on pnfs). Otherwise all files will be copied as is to the DEST.')
+    optional_args.add_argument('--input_file',  action='append',     help='Copy an extra file to the grid node. You can use this multiple times.')
+    optional_args.add_argument('--export',      action='append',     help='Export environment variable to the grid. It must be already set in your current environment. '\
+                                                                          'You can pass in multiple variables. ')
+    optional_args.add_argument('--earlysource', action='append',     help='Source this script before doing anything else in the job. '\
+                                                                          'You can use this multiple times. Syntax is colon separated arguments (ie. script:arg:arg...)')
+    optional_args.add_argument('--earlyscript', action='append',     help='Execute this script before doing anything else in the job (other than any earlysources you\'ve requested. '\
+                                                                          'You can use this multiple times. Syntax is colon separated arguments (ie. script:arg:arg...)')
+    optional_args.add_argument('--source',      action='append',     help='Source this script after any specified "early" scripts or sources. '\
+                                                                          'You can use this multiple times. Syntax is colon separated arguments (ie. script:arg:arg...)')
+    optional_args.add_argument('--prescript',   action='append',     help='Execute this script before running the ToolChain. '\
+                                                                          'You can use this multiple times. Syntax is colon separated arguments (ie. script:arg:arg...)')
+    optional_args.add_argument('--postscript',  action='append',     help='Execute this script after running the ToolChain on all files but before copying them out. '\
+                                                                          'You can use this multiple times. Syntax is colon separated arguments (ie. script:arg:arg...)')
 
     job_control_args = parser.add_argument_group('Job control args', 'Optional arguments for additional job control')
     job_control_args.add_argument('--njobs',             type=int, default=0,       help='Number of jobs to submit')
+    job_control_args.add_argument('--maxConcurrent',     type=int, default=0,       help='Run a maximum of N jobs simultaneously')
     job_control_args.add_argument('--files_per_job',     type=int, default=0,       help='Number of files per job. If zero, calculate from number of jobs')
     job_control_args.add_argument('--nevents',           type=int, default=-1,      help='Number of events per file to process')
     job_control_args.add_argument('--disk',              type=int, default=10000,   help='Local disk space requirement for worker node in MB. (default 10000MB (10GB))')
@@ -154,9 +177,12 @@ if __name__=='__main__':
     job_control_args.add_argument('--grace_lifetime',              default='10800', help='Auto-release jobs which become held due to insufficient lifetime '\
                                                                                          'and resubmit with this additional lifetime (in seconds)')
 
-    job_control_args.add_argument('--continue_project',  metavar='PROJECT_NAME', default="",      help='Do not start a new samweb project, '\
-                                                                                                       'instead continue the specified one.')
-    job_control_args.add_argument('--exclude_site',      metavar='SITE',         action='append', help='Specify an offsite location to exclude.')
+    job_control_args.add_argument('--continue_project',  metavar='PROJECT_NAME', default="",          help='Do not start a new samweb project, '\
+                                                                                                           'instead continue the specified one.')
+    job_control_args.add_argument('--exclude_site',      metavar='SITE',         action='append',     help='Specify an offsite location to exclude.')
+    job_control_args.add_argument('--onsite_only',                               action='store_true', help='Allow to run solely on onsite resources.')
+    job_control_args.add_argument('--offsite_only',                              action='store_true', help='Allow to run solely on offsite resources.')
+
 
     debug_args = parser.add_argument_group('Debugging options', 'These are optional arguments that are useful for debugging or testing')
     debug_args.add_argument('--print_jobsub',    action='store_true', help='Print jobsub command')
@@ -177,6 +203,17 @@ if __name__=='__main__':
     #---------------------------------------------------------------------------
     # Do the work
     #---------------------------------------------------------------------------
+
+    if args.onsite_only and args.offsite_only:
+        fail("Cannot specify onsite_only and offsite_only")
+
+    if not args.onsite_only :
+        usage_models.append("OFFSITE")
+        export_to_annie_sam_wrap.append("IS_OFFSITE=1")
+    if args.offsite_only:
+        usage_models = ["OFFSITE"]
+        export_to_annie_sam_wrap.append("IS_OFFSITE=1")
+
 
     # Check for test submission. Has to be first to override other arguments
     if args.test_submission:
@@ -216,7 +253,7 @@ if __name__=='__main__':
         
     if files_per_job > 0 and njobs > 0:
         jobsub_opts += ['-N %d' %njobs]
-        annie_sam_wrap_opts += ['--nevents %d' %files_per_job]
+        annie_sam_wrap_opts += ['--limit %d' %files_per_job]
             
     elif files_per_job > 0:
         # Files per job defined, but njobs not. Calculate on the fly
@@ -224,7 +261,7 @@ if __name__=='__main__':
         njobs=(old_div(num_files, files_per_job)) +1
         
         jobsub_opts += ['-N %d' %njobs]
-        annie_sam_wrap_opts += ['--nevents %d' %files_per_job]
+        annie_sam_wrap_opts += ['--limit %d' %files_per_job]
         
     elif njobs > 0:
         # Njobs given but not files/job, that's fine
@@ -236,7 +273,7 @@ if __name__=='__main__':
         sleep(5)
 
     # Limit the number of jobs that a user tries to submit
-    if njobs > 5000:
+    if njobs > 5000 and not args.maxConcurrent:
         print('''
         Error: cannot submit more than 5000 jobs in one cluster.
         Please break your submission into multiple batches of 5000 (or less) jobs,
@@ -247,11 +284,21 @@ if __name__=='__main__':
         ''', file=sys.stderr)
         sys.exit(1)
 
+    if args.maxConcurrent:
+        jobsub_opts += ["--maxConcurrent=%d" %args.maxConcurrent]
+        if args.maxConcurrent > 25000:
+            print('''
+            Error: cannot submit more than 25000 jobs to the grid so maxConcurrent shouldn't be higher than that.
+            ''', file=sys.stderr)
+            sys.exit(1)
+
     # Jobsub options
+    resource_opt="--resource-provides=usage_model=" + ",".join( usage_models )
+    jobsub_opts += [resource_opt]
+    
     if args.exclude_site:
         for isite in args.exclude_site:
             jobsub_opts += [ "--append_condor_requirements='(TARGET.GLIDEIN_Site\\ isnt\\ \\\"%s\\\")'" % isite ]
-            #jobsub_opts += [ "--append_condor_requirements='(TARGET.GLIDEIN_Site\ isnt\ \\\"%s\\\")'" % isite ]
 
     if args.disk:
         disk_opt="--disk=%sMB" % (args.disk)
@@ -289,27 +336,115 @@ if __name__=='__main__':
         jobsub_opts += ["--no-submit"]
         jobsub_opts += ["--debug"]
 
-    if args.input_file is not None:
+    if args.input_file:
         for input_file in args.input_file:
             if not os.path.isfile(os.path.expandvars(input_file)):
                 fail("Input file %s does not exist!" % input_file)
 
-                if not os.path.expandvars(input_file).startswith("/pnfs/"):
-                    fail("Input file %s must be in dCache /pnfs/annie/" % input_file)
+            if not os.path.expandvars(input_file).startswith("/pnfs/"):
+                fail("Input file %s must be in dCache /pnfs/annie/" % input_file)
 
-                    jobsub_opts += ['-f dropbox://%s' % input_file]
+            jobsub_opts += ['-f dropbox://%s' % input_file]
 
     if args.copy_out_script is not None:
         if not os.path.isfile(os.path.expandvars(args.copy_out_script)):
             fail("Copyout script %s does not exist!" %args.copy_out_script)
 
-            if not os.path.expandvars(args.copy_out_script).startswith("/pnfs/"):
-                    fail("Copyout script %s must be in /pnfs/annie/" %args.copy_out_script)
+        if not os.path.expandvars(args.copy_out_script).startswith("/pnfs/"):
+            fail("Copyout script %s must be in /pnfs/annie/" %args.copy_out_script)
 
-                    jobsub_opts += ['-f dropbox://%s' % args.copy_out_script]
+        jobsub_opts += ['-f dropbox://%s' % args.copy_out_script]
 
     if args.export:
         export_to_annie_sam_wrap += args.export
+
+    if args.earlysource:
+        for script in args.earlysource:
+            if ":" in script:
+                script_path = script.split(":")[0]
+            else:
+                script_path = script
+
+            if not os.path.isfile(os.path.expandvars(script)):
+                fail("Input file %s does not exist!" % script)
+
+            if not os.path.expandvars(script).startswith("/pnfs/"):
+                fail("Input file %s must be in dCache /pnfs/annie/" % script)
+
+            jobsub_opts += ['-f dropbox://%s' % script_path]
+            annie_sam_wrap_opts += ['--earlysource %s' % script]
+
+
+    if args.earlyscript:
+        for script in args.earlyscript:
+            if ":" in script:
+                script_path = script.split(":")[0]
+            else:
+                script_path = script
+
+            if not os.path.isfile(os.path.expandvars(script)):
+                fail("Input file %s does not exist!" % script)
+
+            if not os.path.expandvars(script).startswith("/pnfs/"):
+                fail("Input file %s must be in dCache /pnfs/annie/" % script)
+
+            jobsub_opts += ['-f dropbox://%s' % script_path]
+            annie_sam_wrap_opts += ['--earlyscript %s' % script]
+    
+    if args.source:
+        for script in args.source:
+            if ":" in script:
+                script_path = script.split(":")[0]
+            else:
+                script_path = script
+
+            if not os.path.isfile(os.path.expandvars(script)):
+                fail("Input file %s does not exist!" % script)
+
+            if not os.path.expandvars(script).startswith("/pnfs/"):
+                fail("Input file %s must be in dCache /pnfs/annie/" % script)
+
+            jobsub_opts += ['-f dropbox://%s' % script_path]
+            annie_sam_wrap_opts += ['--source %s' % script]
+
+    if args.prescript:
+        for script in args.prescript:
+            if ":" in script:
+                script_path = script.split(":")[0]
+            else:
+                script_path = script
+
+            if not os.path.isfile(os.path.expandvars(script)):
+                fail("Input file %s does not exist!" % script)
+
+            if not os.path.expandvars(script).startswith("/pnfs/"):
+                fail("Input file %s must be in dCache /pnfs/annie/" % script)
+
+            jobsub_opts += ['-f dropbox://%s' % script_path]
+            annie_sam_wrap_opts += ['--prescript %s' % script]
+
+
+    if args.postscript:
+        for script in args.postscript:
+            if ":" in script:
+                script_path = script.split(":")[0]
+            else:
+                script_path = script
+
+            if not os.path.isfile(os.path.expandvars(script)):
+                fail("Input file %s does not exist!" % script)
+
+            if not os.path.expandvars(script).startswith("/pnfs/"):
+                fail("Input file %s must be in dCache /pnfs/annie/" % script)
+
+            jobsub_opts += ['-f dropbox://%s' % script_path]
+            annie_sam_wrap_opts += ['--postscript %s' %script]
+
+    if not os.path.expandvars(args.dest).startswith("/pnfs/"):
+        fail("Destination directory %s must be in dCache /pnfs/annie/" % args.dest)
+   
+    export_to_annie_sam_wrap.append("DEST=%s" % args.dest)
+
 
         
     ##########################################################
@@ -317,9 +452,9 @@ if __name__=='__main__':
     #########################################################
     if not args.continue_project:
         ##start sam project
-        project_name = user + "-" + args.jobname + "-" + timestamp
+        project_name = user + "_" + args.jobname + "_" + timestamp
         if args.test_submission:
-            project_name += "-testjobs"
+            project_name += "_testjobs"
         start_project = True
     else:
         project_name = args.continue_project
@@ -327,28 +462,23 @@ if __name__=='__main__':
 
     sam_station=os.getenv("SAM_STATION")
     if start_project and not args.test:
-        print('starting %s' %project_name)
+        print('\nstarting %s\n' %project_name)
         start_proj_retval = samweb.startProject(project_name, defname=args.defname,
                             group='annie', station=sam_station)        
 
     os.putenv("SAM_PROJECT_NAME",project_name)
-
         
-    annie_sam_wrap_opts += ['--dest %s' %args.dest]
     annie_sam_wrap_opts += ['--config %s' %args.config]
     annie_sam_wrap_opts += ['--input_file_config %s' %args.input_file_config]
-    annie_sam_wrap_opts += ['--nevents %s' %args.nevents]
+    annie_sam_wrap_opts += ['--nevents "%s"' %args.nevents]
     if args.input_config_var:
         annie_sam_wrap_opts += ['--input_config_var %s' %args.input_config_var]
     if args.copy_out_script:
         annie_sam_wrap_opts += ['--copy_out_script %s' %args.copy_out_script]
-    if args.tarball:
-        annie_sam_wrap_opts += ['--tarball %s' %os.path.basename(args.tarball)]
     if not args.no_rename:
         annie_sam_wrap_opts += ['--rename_outputs']
-    
-    
-    
+    if not args.no_job_dirs:
+        annie_sam_wrap_opts += ['--job_dirs']
     
     
     ############################
@@ -363,3 +493,8 @@ if __name__=='__main__':
         sys.stderr.flush()
 
     os.system(jobsub_cmd)
+
+    files=glob.glob("./*.tbz2")
+    for file in files:
+        print(file)
+        os.remove(file)
