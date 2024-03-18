@@ -34,7 +34,7 @@ pre_scripts = []
 post_scripts = []
 
 
-timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 user=os.getenv("USER")
 
 def remove_comments(src):
