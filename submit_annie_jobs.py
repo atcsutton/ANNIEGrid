@@ -15,6 +15,15 @@ import tokenize
 import io
 import subprocess
 
+# "Working" sites for all experiments from https://cdcvs.fnal.gov/redmine/projects/fife/wiki/Information_about_job_submission_to_OSG_sites
+all_sites = [
+    "BNL",       "Caltech",   "Clemson-Palmetto",        "Colorado",
+    "Cornell",   "FermiGrid", "FNAL",                    "Michigan",
+    "NotreDame", "Omaha",     "SLATE_US_NMSU_DISCOVERY", "SU-ITS",
+    "UChicago",  "UConn-HPC", "UCSD",                    "Wisconsin"
+    ]
+
+# Discovered through testing
 excluded_sites = [ 'Omaha', 'Swan', 'Wisconsin']
 
 jobsub_opts = []
@@ -28,13 +37,11 @@ export_to_annie_sam_wrap = ['GRID_USER', 'EXPERIMENT', 'SAM_EXPERIMENT', 'SAM_ST
 usage_models = ['DEDICATED,OPPORTUNISTIC']
 
 input_files = []
-
 early_sources = []
 early_scripts = []
 sources = []
 pre_scripts = []
 post_scripts = []
-
 
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 user=os.getenv("USER")
@@ -210,13 +217,14 @@ if __name__=='__main__':
     if args.onsite_only and args.offsite_only:
         fail("Cannot specify onsite_only and offsite_only")
 
+    use_recommended_sites=False
     if not args.onsite_only :
         usage_models.append("OFFSITE")
         export_to_annie_sam_wrap.append("IS_OFFSITE=1")
-    if args.offsite_only:
+        use_recommended_sites=True             
+    if args.offsite_only:                 
         usage_models = ["OFFSITE"]
         export_to_annie_sam_wrap.append("IS_OFFSITE=1")
-
 
     # Check for test submission. Has to be first to override other arguments
     if args.test_submission:
@@ -298,7 +306,14 @@ if __name__=='__main__':
     # Jobsub options
     resource_opt="--resource-provides=usage_model=" + ",".join( usage_models )
     jobsub_opts += [resource_opt]
-    
+
+    if use_recommended_sites:
+        site_opt="--site="        
+        for isite in all_sites:
+            site_opt += isite +","
+        site_opt=site_opt[:-1]
+        jobsub_opts+= [ site_opt ]
+
     if args.exclude_site:
         for isite in args.exclude_site:            
             excluded_sites += [ isite ]

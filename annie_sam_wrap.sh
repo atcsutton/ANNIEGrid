@@ -75,7 +75,7 @@ Usage:
         optional script to copy outputs to the final destination. 
 
     -r|--rename_outputs
-        rename the output files by prepending the input file name
+        rename the output files by prepending the input file name or job and file number
 
     -j|--job_dirs
         make destination directories based on the job numbers.
@@ -304,7 +304,7 @@ update_input_file() {
 }
 
 ################################################################################
-# Rename outputs by prepending the input file name
+# Rename outputs by prepending the input file name or job and file number
 ################################################################################
 rename_output_files() {
     oldwd=`pwd`
@@ -320,7 +320,7 @@ rename_output_files() {
 
     # If using job dirs then prepend job and file number
     # otherwise prepend the input file name
-    if $job_dirs; then
+    if ${job_dirs}; then
 	if [ -z "${filenum}" ]; then
 	    filenum=0
 	else
@@ -333,7 +333,7 @@ rename_output_files() {
 	    jobnum=${PROCESS}
 	fi
 
-	prefix="j${jobnum}_f${filenum}"
+	prefix="job${jobnum}_file${filenum}"
 	# just looking for files that have not been renamed
 	for outfile in `ls | grep -vFf renamed_files.txt`; do
 	    mv ${outfile} ${prefix}.${outfile}
@@ -347,6 +347,7 @@ rename_output_files() {
 	    mv ${outfile} ${prefix}.${outfile}
 	    echo ${prefix}.${outfile} >> renamed_files.txt
 	done
+    fi
 
     cd ${oldpwd}
 }
@@ -654,14 +655,14 @@ done
 # Now to copy things out to $DEST
 #-------------------------------------------------------------------------------
 if ${job_dirs}; then
-   if [ -n "${JOBSUBJOBSECTION}" ]; then
-       newdest=${DEST}/job_${JOBSUBJOBSECTION}
-   else
-       newdest=${DEST}/job_${PROCESS}
-   fi
-   echo "new destination will be ${newdest}"
-   ifdh mkdir_p ${newdest}
-   DEST=${newdest}
+    if [ -n "${JOBSUBJOBSECTION}" ]; then
+	newdest=${DEST}/job_${JOBSUBJOBSECTION}
+    else
+	newdest=${DEST}/job_${PROCESS}
+    fi
+    echo "new destination will be ${newdest}"
+    ifdh mkdir_p ${newdest}
+    DEST=${newdest}
 fi
 
 if [ -n "${cpsc}" ]; then
