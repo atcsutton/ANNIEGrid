@@ -191,7 +191,7 @@ if __name__=='__main__':
     job_control_args.add_argument('--exclude_site',      metavar='SITE',         action='append',     help='Specify an offsite location to exclude.')
     job_control_args.add_argument('--onsite_only',                               action='store_true', help='Allow to run solely on onsite resources.')
     job_control_args.add_argument('--offsite_only',                              action='store_true', help='Allow to run solely on offsite resources.')
-
+    job_control_args.add_argument('--grid_al9',                                  action='store_true', help='Run in AL9 on the grid. By default, ANNIE submissions use the SL7 container.')
 
     debug_args = parser.add_argument_group('Debugging options', 'These are optional arguments that are useful for debugging or testing')
     debug_args.add_argument('--print_jobsub',    action='store_true', help='Print jobsub command')
@@ -338,7 +338,10 @@ if __name__=='__main__':
     jobsub_opts += ["--lines '+FERMIHTC_GraceMemory=" + args.grace_memory + "'"]
     jobsub_opts += ["--lines '+FERMIHTC_GraceLifetime=" + args.grace_lifetime + "'"]
 
-    #expected lifetime can be an in (number of secs) or
+    if not args.grid_al9:        
+        jobsub_opts += ["--singularity-image /cvmfs/singularity.opensciencegrid.org/fermilab/fnal-wn-sl7:latest"]
+        
+    # expected lifetime can be an in (number of secs) or
     # one of a few strings, this should test for either
     # possibility
     try:
