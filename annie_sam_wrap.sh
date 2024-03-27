@@ -170,7 +170,7 @@ clean_it_up() {
 
     if [[ ${status} == *"running"* ]]; then
 	echo "The project is running and there are are ${num_active} active processes remaining"
-	if [ "${num_active}" = "null" || "${1}" = "force" ]; then
+	if [ "${num_active}" = "null" ] || [ "${1}" = "force" ]; then
 	    echo "Ending the whole project"
 	    ifdh endProject "${projurl}"
 	fi
