@@ -16,7 +16,7 @@ import io
 import subprocess
 
 # "Working" sites for all experiments from https://cdcvs.fnal.gov/redmine/projects/fife/wiki/Information_about_job_submission_to_OSG_sites
-all_sites = [
+recommended_sites = [
     "BNL",       "Caltech",   "Clemson-Palmetto",        "Colorado",
     "Cornell",   "FermiGrid", "FNAL",                    "Michigan",
     "NotreDame", "Omaha",     "SLATE_US_NMSU_DISCOVERY", "SU-ITS",
@@ -188,7 +188,9 @@ if __name__=='__main__':
 
     job_control_args.add_argument('--continue_project',  metavar='PROJECT_NAME', default="",          help='Do not start a new samweb project, '\
                                                                                                            'instead continue the specified one.')
+    job_control_args.add_argument('--site',                                      action='append',     help='Specify allowed offsite locations.  Omit to allow running at any offsite location')
     job_control_args.add_argument('--exclude_site',      metavar='SITE',         action='append',     help='Specify an offsite location to exclude.')
+    job_control_args.add_argument('--all_sites', default="false", required=False, action="store_true", help="Remove all specific site requirements.")
     job_control_args.add_argument('--onsite_only',                               action='store_true', help='Allow to run solely on onsite resources.')
     job_control_args.add_argument('--offsite_only',                              action='store_true', help='Allow to run solely on offsite resources.')
     job_control_args.add_argument('--grid_al9',                                  action='store_true', help='Run in AL9 on the grid. By default, ANNIE submissions use the SL7 container.')
@@ -218,11 +220,12 @@ if __name__=='__main__':
         fail("Cannot specify onsite_only and offsite_only")
 
     use_recommended_sites=False
-    if not args.onsite_only :
+    if not args.onsite_only:
         usage_models.append("OFFSITE")
         export_to_annie_sam_wrap.append("IS_OFFSITE=1")
-        use_recommended_sites=True             
-    if args.offsite_only:                 
+        if not args.site or not args.all_sites:
+            use_recommended_sites=True             
+    if args.offsite_only and not args.site:                 
         usage_models = ["OFFSITE"]
         export_to_annie_sam_wrap.append("IS_OFFSITE=1")
 
@@ -307,10 +310,17 @@ if __name__=='__main__':
     resource_opt="--resource-provides=usage_model=" + ",".join( usage_models )
     jobsub_opts += [resource_opt]
 
-    if use_recommended_sites:
-        site_opt="--site="        
-        for isite in all_sites:
-            site_opt += isite +","
+    if use_recommended_sites or args.site and not args.all_sites:
+        site_opt="--site="
+
+        if use_recommended_sites:
+            for isite in all_sites:
+                site_opt += isite +","
+        if args.site:
+            for isite in args.site:
+                if isite not in all_sites:
+                    warn("Site %s is not known to work. Your jobs may fail.")
+                site_opt += isite + ","
         site_opt=site_opt[:-1]
         jobsub_opts+= [ site_opt ]
 

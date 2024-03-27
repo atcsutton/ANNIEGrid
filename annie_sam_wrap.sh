@@ -170,7 +170,7 @@ clean_it_up() {
 
     if [[ ${status} == *"running"* ]]; then
 	echo "The project is running and there are are ${num_active} active processes remaining"
-	if [ "${num_active}" = "null" ]; then
+	if [ "${num_active}" = "null" || "${1}" = "force" ]; then
 	    echo "Ending the whole project"
 	    ifdh endProject "${projurl}"
 	fi
@@ -464,6 +464,12 @@ do
     sleep 600
 done
 
+# Check that /cvmfs/singularity.opensciencegrid.org is dynamically mounted
+# ls'ing this dir should be enough to force the auto mount I think
+echo ""
+echo "Checking for /cvmfs/singularity.opensciencegrid.org"
+ls /cvmfs/singularity.opensciencegrid.org
+
 #-------------------------------------------------------------------------------
 # Run the early stuff
 #-------------------------------------------------------------------------------
@@ -635,6 +641,15 @@ while [ "$res" = 0 ]; do
     fi 
 done
 
+
+#-------------------------------------------------------------------------------
+# Kick out if the while loop failed
+#-------------------------------------------------------------------------------
+if [ "${res}" != "0" ]; then
+    clean_it_up "force"
+    exit ${res}
+fi
+
 #-------------------------------------------------------------------------------
 # the post execution scripts
 #-------------------------------------------------------------------------------
@@ -692,3 +707,4 @@ fi
 # And clean it all up
 #-------------------------------------------------------------------------------
 clean_it_up
+exit ${res}
