@@ -31,7 +31,7 @@ jobsub_opts = []
 annie_sam_wrap_cmd =os.getenv('ANNIEGRIDUTILSDIR')+'/annie_sam_wrap.sh'
 annie_sam_wrap_opts = []
 
-export_to_annie_sam_wrap = ['GRID_USER', 'EXPERIMENT', 'SAM_EXPERIMENT', 'SAM_STATION', 'SAM_PROJECT_NAME', 'IFDH_BASE_URI', 'IFDH_FORCE']
+export_to_annie_sam_wrap = ['GRID_USER', 'EXPERIMENT', 'SAM_EXPERIMENT', 'SAM_STATION', 'SAM_PROJECT_NAME', 'IFDH_BASE_URI']
 
 # setup usage models to use and  sites we're going to use
 usage_models = ['DEDICATED,OPPORTUNISTIC']
@@ -243,14 +243,14 @@ if __name__=='__main__':
 
         print("  njobs", args.njobs, "-->", test_njobs)
         args.njobs = test_njobs
-        print("  nevts", args.nevts, "-->", test_nevts)
-        args.nevts = test_nevts
+        print("  nevts", args.nevents, "-->", test_nevts)
+        args.nevents = test_nevts
         print("  dest", args.dest, "-->", test_dest)
         args.dest = test_dest
         print("  expected_lifetime", args.expected_lifetime, "-->", test_expected_lifetime)
         args.expected_lifetime = test_expected_lifetime
-        print("  dynamic_lifetime", args.dynamic_lifetime, "-->", test_dynamic_lifetime)
-        args.dynamic_lifetime = test_dynamic_lifetime
+        # print("  dynamic_lifetime", args.dynamic_lifetime, "-->", test_dynamic_lifetime)
+        # args.dynamic_lifetime = test_dynamic_lifetime
         print("  files_per_job", args.files_per_job, "-->", test_files_per_job)
         args.files_per_job = test_files_per_job
 
