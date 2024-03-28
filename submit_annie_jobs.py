@@ -190,7 +190,7 @@ if __name__=='__main__':
                                                                                                            'instead continue the specified one.')
     job_control_args.add_argument('--site',                                      action='append',     help='Specify allowed offsite locations.  Omit to allow running at any offsite location')
     job_control_args.add_argument('--exclude_site',      metavar='SITE',         action='append',     help='Specify an offsite location to exclude.')
-    job_control_args.add_argument('--all_sites', default="false", required=False, action="store_true", help="Remove all specific site requirements.")
+    job_control_args.add_argument('--all_sites',                                 action="store_true", help="Remove all specific site requirements.")
     job_control_args.add_argument('--onsite_only',                               action='store_true', help='Allow to run solely on onsite resources.')
     job_control_args.add_argument('--offsite_only',                              action='store_true', help='Allow to run solely on offsite resources.')
     job_control_args.add_argument('--grid_al9',                                  action='store_true', help='Run in AL9 on the grid. By default, ANNIE submissions use the SL7 container.')
@@ -219,15 +219,17 @@ if __name__=='__main__':
     if args.onsite_only and args.offsite_only:
         fail("Cannot specify onsite_only and offsite_only")
 
-    use_recommended_sites=False
-    if not args.onsite_only:
+    if not args.onsite_only :
         usage_models.append("OFFSITE")
         export_to_annie_sam_wrap.append("IS_OFFSITE=1")
-        if not args.site or not args.all_sites:
-            use_recommended_sites=True             
-    if args.offsite_only and not args.site:                 
+    if args.offsite_only:
         usage_models = ["OFFSITE"]
         export_to_annie_sam_wrap.append("IS_OFFSITE=1")
+        
+    use_recommended_sites=False
+    if not args.onsite_only and not args.site and not args.all_sites:
+        use_recommended_sites=True
+
 
     # Check for test submission. Has to be first to override other arguments
     if args.test_submission:
@@ -314,15 +316,18 @@ if __name__=='__main__':
         site_opt="--site="
 
         if use_recommended_sites:
-            for isite in all_sites:
-                site_opt += isite +","
+            for isite in recommended_sites:
+                site_opt += isite + ","
         if args.site:
             for isite in args.site:
-                if isite not in all_sites:
-                    warn("Site %s is not known to work. Your jobs may fail.")
+                if isite not in recommended_sites:
+                    warn("Site "+isite+" is not known to work. Your jobs may fail at that site. Sleeping for 5 seconds")
+                    sleep(5)
                 site_opt += isite + ","
+
         site_opt=site_opt[:-1]
-        jobsub_opts+= [ site_opt ]
+        jobsub_opts += [ site_opt ]
+
 
     if args.exclude_site:
         for isite in args.exclude_site:            
