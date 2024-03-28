@@ -122,7 +122,8 @@ if __name__=='__main__':
                 if os.path.isfile(filepath):
                     fullpath = filepath
                 else:
-                    fullpath = find_file(["$NOVAGRIDUTILS_DIR/configs/"],filepath)
+                    print("%s was not found. Exiting." %filepath)
+                    sys.exit(1)
                 text = open(fullpath, 'r').read()
                 text = remove_comments(text) # Strip out commented lines
                 newargs = []

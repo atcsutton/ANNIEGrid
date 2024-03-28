@@ -473,15 +473,20 @@ ls /cvmfs/singularity.opensciencegrid.org > /dev/null 2>&1
 if [[ $? != 0 ]]; then
     echo ""
     echo "/cvmfs/singularity.opensciencegrid.org was not found. Exiting."
-    clean_it_up "force"
+    clean_it_up 
     exit $?
+else
+    echo "/cvmfs/singularity.opensciencegrid.org was found."
 fi
+
 ls /cvmfs/fermilab.opensciencegrid.org > /dev/null 2>&1
 if [[ $? != 0 ]]; then
     echo ""
     echo "/cvmfs/fermilab.opensciencegrid.org was not found. Exiting."
-    clean_it_up "force"
+    clean_it_up 
     exit $?
+else
+    echo "/cvmfs/fermilab.opensciencegrid.org was found."
 fi
 
 #-------------------------------------------------------------------------------
@@ -660,7 +665,7 @@ done
 # Kick out if the while loop failed
 #-------------------------------------------------------------------------------
 if [ "${res}" != "0" ]; then
-    clean_it_up "force"
+    clean_it_up
     exit ${res}
 fi
 
