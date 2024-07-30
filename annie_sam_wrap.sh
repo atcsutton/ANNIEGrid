@@ -34,6 +34,7 @@ prescripts=""
 postscripts=""
 
 n_max_files_skipped=1
+dest_updated=false
 
 #
 # parse options we know, collect rest in $args
@@ -185,8 +186,11 @@ clean_it_up() {
 # Function to get the next file in the SAM project
 ################################################################################
 get_next_file() {
+    
     fname=""
     uri=`IFDH_DEBUG= ifdh getNextFile $projurl $consumer_id | tail -1`
+    echo ""
+    echo "Next file URI: ${uri}"
     [ -z "${uri}" ] && return 0
 
     IFDH_DEBUG= ifdh fetchInput "${uri}" > fetch.log 2>&1
@@ -199,6 +203,10 @@ get_next_file() {
         fname=`tail -1 fetch.log`
 	echo "Got file: ${fname}"
     fi
+
+    echo ""
+    echo "fetch.log contains: "
+    cat fetch.log
 
     return ${res}
 }
@@ -256,6 +264,9 @@ check_lifetime() {
 ################################################################################
 modify_config_fullpath() {
     oldwd=`pwd`
+
+    echo ""
+    echo "Modifying the config paths"
     
     # copy the toolchain configs to a new directory so we can edit them
     cd ${topDir}
@@ -274,6 +285,19 @@ modify_config_fullpath() {
 
     # insert the full path for other configs that are referenced
     sed -i 's~configfiles~/MyToolAnalysis/configfiles~g' *
+
+    echo ""
+    echo "Done modifying the config paths"
+    grep -r configfiles
+
+    echo "contents of all config files"
+    for file in `ls`; do
+	extension="${file##*.}"
+	if [ "$extension" == "csv" ]; then continue; fi
+	echo ""
+	echo "${file}"
+	cat ${file}
+    done
 
     cd ${oldwd}
 }
@@ -394,6 +418,56 @@ kill_proc_kids_after_n() {
        done
     fi
 }
+
+################################################################################
+# Copy files out
+################################################################################
+copy_out() {
+    if (${job_dirs}) && ! (${dest_updated}); then 
+	if [ -n "${JOBSUBJOBSECTION}" ]; then
+	    newdest=${DEST}/job_${JOBSUBJOBSECTION}
+	else
+	    newdest=${DEST}/job_${PROCESS}
+	fi
+	echo "new destination will be ${newdest}"
+	ifdh mkdir_p ${newdest}
+	DEST=${newdest}
+	dest_updated=true
+    fi
+
+    if [ -n "${cpsc}" ]; then
+	# use custom script
+	echo ""
+	echo "Using custom copyout script"
+	eval ${CONDOR_DIR_INPUT}/${cpsc}
+    else
+	# otherwise just copy everything
+	echo ""
+	echo "Copying back everything from ${outputDir} to ${DEST}"
+        
+	cd ${outputDir}
+	ls
+	for file in `ls`; do
+	    if [ "${file}" = "renamed_files.txt" ]; then
+		continue
+	    fi
+	    
+	    ifdh addOutputFile ${file}
+	done
+
+	echo "Copying back everything from /tmp"
+	cd /tmp
+	ls
+	for file in `ls`; do
+	    ifdh addOutputFile ${file}
+	done
+	    
+	
+	ifdh copyBackOutput "${DEST}"
+    fi
+
+}
+
 
 
 ################################################################################
@@ -550,7 +624,7 @@ echo ""
 topDir=$_CONDOR_JOB_IWD
 toolAnaDir=$INPUT_TAR_DIR_LOCAL
 
-#-------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 # grab project information
 #-------------------------------------------------------------------------------
 echo "ifdh findProject $SAM_PROJECT_NAME ${SAM_STATION:-$EXPERIMENT}"
@@ -612,12 +686,16 @@ sed -i 's/^Inline .*$/Inline '${nevts}'/g' ${tempConfigDir}/ToolChainConfig
 # the first ROOT_INCLUDE_PATH addition doesn't need the colon, but the second one does...
 #-------------------------------------------------------------------------------
 containercmd="\"cd /MyToolAnalysis && "
+containercmd+="ulimit -c unlimited && "
 containercmd+="source Setup.sh && "
 containercmd+="export ROOT_INCLUDE_PATH=\"'"'${ROOT_INCLUDE_PATH}'"'\"/MyToolAnalysis/DataModel && "
 containercmd+="export ROOT_INCLUDE_PATH=\"'"'${ROOT_INCLUDE_PATH}'"'\":/MyToolAnalysis/ToolDAQ/boost_1_66_0/boost/serialization/ && "
 containercmd+="export ROOT_INCLUDE_PATH=\"'"'${ROOT_INCLUDE_PATH}'"'\":/MyToolAnalysis/ToolDAQ/boost_1_66_0/install/include/ && "
 containercmd+="cd ${outputDir} && "
+containercmd+="echo && echo \"ROOT_INCLUDE_PATH\" "
 containercmd+="echo \"'"'${ROOT_INCLUDE_PATH}'"'\" && "
+containercmd+="echo && echo \"LD_LIBRARY_PATH\""
+containercmd+="echo \"'"'${LD_LIBRARY_PATH}'"'\" && "
 containercmd+="/MyToolAnalysis/Analyse ${tempConfigDir}/ToolChainConfig\""
 
 command="singularity exec -B${topDir}:${topDir},${toolAnaDir}:/MyToolAnalysis /cvmfs/singularity.opensciencegrid.org/anniesoft/toolanalysis\:latest/ bash -c ${containercmd}"
@@ -629,6 +707,8 @@ res=0
 n_skipped_in_a_row=0
 while [ "$res" = 0 ]; do
     check_lifetime || break
+    echo ""
+    echo "Getting the next file!"
     get_next_file || break
     if [ -z "${fname}" ]; then
         echo "No files returned by SAM project.  Most likely all files in the project have already been seen."
@@ -662,9 +742,15 @@ done
 
 
 #-------------------------------------------------------------------------------
-# Kick out if the while loop failed
+# Kick out if the while loop failed, but copy back for debugging
 #-------------------------------------------------------------------------------
 if [ "${res}" != "0" ]; then
+    echo "ls /var/lib/systemd/coredump/"
+    ls /var/lib/systemd/coredump/
+    echo "ls /tmp"
+    ls -lrth /tmp
+
+    copy_out
     clean_it_up
     exit ${res}
 fi
@@ -684,46 +770,9 @@ for blat in $postscripts; do
     fi
 done
 
-
 #-------------------------------------------------------------------------------
-# Now to copy things out to $DEST
+# Now, to copy things out and clean it all up
 #-------------------------------------------------------------------------------
-if ${job_dirs}; then
-    if [ -n "${JOBSUBJOBSECTION}" ]; then
-	newdest=${DEST}/job_${JOBSUBJOBSECTION}
-    else
-	newdest=${DEST}/job_${PROCESS}
-    fi
-    echo "new destination will be ${newdest}"
-    ifdh mkdir_p ${newdest}
-    DEST=${newdest}
-fi
-
-if [ -n "${cpsc}" ]; then
-    # use custom script
-    echo ""
-    echo "Using custom copyout script"
-    eval ${CONDOR_DIR_INPUT}/${cpsc}
-else
-    # otherwise just copy everything
-    echo ""
-    echo "Copying back everything from ${outputDir} to ${DEST}"
-        
-    cd ${outputDir}
-    ls
-    for file in `ls`; do
-	if [ "${file}" = "renamed_files.txt" ]; then
-	    continue
-	fi
-	
-	ifdh addOutputFile ${file}
-    done
-
-    ifdh copyBackOutput "${DEST}"
-fi
-
-#-------------------------------------------------------------------------------
-# And clean it all up
-#-------------------------------------------------------------------------------
+copy_out
 clean_it_up
 exit ${res}
