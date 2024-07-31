@@ -2,10 +2,10 @@
 
 from __future__ import print_function
 from __future__ import division
-from future import standard_library
-standard_library.install_aliases()
+#from future import standard_library
+#standard_library.install_aliases()
 from builtins import str
-from past.utils import old_div
+#from past.utils import old_div
 import os, sys, stat, pwd, re, glob
 import argparse
 import datetime
@@ -275,7 +275,8 @@ if __name__=='__main__':
     elif files_per_job > 0:
         # Files per job defined, but njobs not. Calculate on the fly
         num_files = samweb.countFiles(defname=args.defname)
-        njobs=(old_div(num_files, files_per_job)) +1
+        #njobs=(old_div(num_files, files_per_job)) +1
+        njobs=(num_files//files_per_job) +1
         
         jobsub_opts += ['-N %d' %njobs]
         annie_sam_wrap_opts += ['--limit %d' %files_per_job]
