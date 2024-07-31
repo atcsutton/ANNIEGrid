@@ -601,15 +601,20 @@ done
 #-------------------------------------------------------------------------------
 # Setup ups and ifdhc
 #-------------------------------------------------------------------------------
-source /cvmfs/fermilab.opensciencegrid.org/products/common/etc/setup
-setup ifdhc
+#source /cvmfs/fermilab.opensciencegrid.org/products/common/etc/setup
+#setup ifdhc
+# new spack'ified methods
+source /cvmfs/fermilab.opensciencegrid.org/packages/common/spack/current/NULL/share/spack/setup-env.sh
+spack load ifdhc@2.7%gcc@11.3.1
+
 
 
 #-------------------------------------------------------------------------------
 # print some things for debugging
 #-------------------------------------------------------------------------------
 echo ""
-ups active
+#ups active
+spack find --loaded
 echo ""
 printenv
 echo""

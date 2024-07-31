@@ -25,10 +25,13 @@ function setup_fnal_security() {
     fi
 }
 
+#source /cvmfs/fermilab.opensciencegrid.org/products/common/etc/setup
+#export PRODUCTS=${PRODUCTS}:/cvmfs/larsoft.opensciencegrid.org/products/
+#setup fife_utils
+# new spack'ified method
+source /cvmfs/fermilab.opensciencegrid.org/packages/common/spack/current/NULL/share/spack/setup-env.sh
+spack load fife-utils@3.7.2%gcc@11.3.1
 
-source /cvmfs/fermilab.opensciencegrid.org/products/common/etc/setup
-export PRODUCTS=${PRODUCTS}:/cvmfs/larsoft.opensciencegrid.org/products/
-setup fife_utils
 
 export GROUP="annie"
 export GRID_USER=$USER
