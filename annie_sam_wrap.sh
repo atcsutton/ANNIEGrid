@@ -621,13 +621,18 @@ echo""
 pwd
 echo ""
 ls
+
+
+tarname=`basename ${INPUT_TAR_FILE}`
+tarname=${tarname%.*}
+tarname=${tarname%.*}
 echo ""
-echo "$INPUT_TAR_DIR_LOCAL"
-ls $INPUT_TAR_DIR_LOCAL
+echo "${INPUT_TAR_DIR_LOCAL}/${tarname}"
+ls ${INPUT_TAR_DIR_LOCAL}/${tarname}
 echo ""
 
 topDir=$_CONDOR_JOB_IWD
-toolAnaDir=$INPUT_TAR_DIR_LOCAL
+toolAnaDir=$INPUT_TAR_DIR_LOCAL/${tarname}
 
 #------------------------------------------------------------------------------
 # grab project information
