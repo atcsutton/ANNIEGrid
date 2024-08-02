@@ -515,7 +515,7 @@ if __name__=='__main__':
     if args.input_config_var:
         annie_sam_wrap_opts += ['--input_config_var %s' %args.input_config_var]
     if args.copy_out_script:
-        annie_sam_wrap_opts += ['--copy_out_script %s' %args.copy_out_script]
+        annie_sam_wrap_opts += ['--copy_out_script %s' %os.path.basename(args.copy_out_script)]
     if not args.no_rename:
         annie_sam_wrap_opts += ['--rename_outputs']
     if not args.no_job_dirs:

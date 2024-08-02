@@ -186,6 +186,7 @@ clean_it_up() {
 # Function to get the next file in the SAM project
 ################################################################################
 get_next_file() {
+    rm -f ${fname}
     
     fname=""
     uri=`IFDH_DEBUG= ifdh getNextFile $projurl $consumer_id | tail -1`
@@ -205,8 +206,8 @@ get_next_file() {
     fi
 
     echo ""
-    echo "fetch.log contains: "
-    cat fetch.log
+    ls -l ${fname}
+    echo ""
 
     return ${res}
 }
@@ -290,6 +291,7 @@ modify_config_fullpath() {
     echo "Done modifying the config paths"
     grep -r configfiles
 
+    echo ""
     echo "contents of all config files"
     for file in `ls`; do
 	extension="${file##*.}"
@@ -316,8 +318,9 @@ update_input_file() {
 	# no input variable defined, assume that we can just overwrite the ifconf
 	echo "${fname}" > ${ifconf}
     else
-	# we'll have to overwrite the specific line
-	sed -i 's/^'${ivar}' .*$/'${ivar}' '${fname}'/g' ${ifconf}
+	echo "we'll have to overwrite the specific line"
+	echo "sed -i 's~^'${ivar}' .*$~'${ivar}' '${fname}'~g' ${ifconf}"
+	sed -i 's~^'${ivar}' .*$~'${ivar}' '${fname}'~g' ${ifconf}
     fi
 
     
@@ -439,7 +442,8 @@ copy_out() {
 	# use custom script
 	echo ""
 	echo "Using custom copyout script"
-	eval ${CONDOR_DIR_INPUT}/${cpsc}
+	echo ${CONDOR_DIR_INPUT}/${cpsc}
+	source ${CONDOR_DIR_INPUT}/${cpsc}
     else
 	# otherwise just copy everything
 	echo ""
@@ -623,16 +627,27 @@ echo ""
 ls
 
 
-tarname=`basename ${INPUT_TAR_FILE}`
-tarname=${tarname%.*}
-tarname=${tarname%.*}
+if [ -d "${INPUT_TAR_DIR_LOCAL}/configfiles" ]; then
+    # top of tar dir is ToolAnalysis
+    toolAnaDir=${INPUT_TAR_DIR_LOCAL}
+else
+    testDir=`ls ${INPUT_TAR_DIR_LOCAL}`
+    if [ -d "${INPUT_TAR_DIR_LOCAL}/${testDir}/configfiles" ]; then
+	toolAnaDir=${INPUT_TAR_DIR_LOCAL}/${testDir}
+    else
+	clean_it_up
+	echo ""
+	echo "Your tar is weird. It's best to tar from within your ToolAnalysis directory."
+	exit 9
+    fi
+fi
+
 echo ""
-echo "${INPUT_TAR_DIR_LOCAL}/${tarname}"
-ls ${INPUT_TAR_DIR_LOCAL}/${tarname}
-echo ""
+echo "${toolAnaDir}"
+ls  ${toolAnaDir}
 
 topDir=$_CONDOR_JOB_IWD
-toolAnaDir=$INPUT_TAR_DIR_LOCAL/${tarname}
+
 
 #------------------------------------------------------------------------------
 # grab project information
