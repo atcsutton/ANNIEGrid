@@ -609,7 +609,7 @@ done
 #setup ifdhc
 # new spack'ified methods
 source /cvmfs/fermilab.opensciencegrid.org/packages/common/spack/current/NULL/share/spack/setup-env.sh
-spack load ifdhc@2.7%gcc@11.3.1
+spack load --first ifdhc@2.7%gcc@11.3.1
 
 
 
