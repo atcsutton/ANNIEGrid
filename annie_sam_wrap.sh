@@ -451,23 +451,34 @@ copy_out() {
         
 	cd ${outputDir}
 	ls
+
 	for file in `ls`; do
 	    if [ "${file}" = "renamed_files.txt" ]; then
 		continue
 	    fi
 	    
-	    ifdh addOutputFile ${file}
+	    ifdh cp ${file} ${DEST}/${file}
 	done
 
-	echo "Copying back everything from /tmp"
-	cd /tmp
-	ls
-	for file in `ls`; do
-	    ifdh addOutputFile ${file}
-	done
+	#
+	# This isn't working right now
+	#
+	# for file in `ls`; do
+	#     if [ "${file}" = "renamed_files.txt" ]; then
+	# 	continue
+	#     fi
 	    
+	#     ifdh addOutputFile ${file}
+	# done
+
+	# echo "Copying back everything from /tmp"
+	# cd /tmp
+	# ls
+	# for file in `ls`; do
+	#     ifdh addOutputFile ${file}
+	# done
 	
-	ifdh copyBackOutput "${DEST}"
+	# ifdh copyBackOutput "${DEST}"
     fi
 
 }
