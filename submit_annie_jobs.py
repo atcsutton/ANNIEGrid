@@ -152,10 +152,12 @@ if __name__=='__main__':
     optional_args.add_argument('--input_config_var',               help='Variable name in the input_file_config that defines what the input is. '\
                                                                         'eg. for LoadWCSim this would be required and set to \"InputFile\", '\
                                                                         'while for DataDecoder this argument is not required.')
-    optional_args.add_argument('--no_job_dirs', action='store_true', help='By default, directories will be created in DEST for each job number in order to prevent '\
+    optional_args.add_argument('--no_job_dirs', action='store_true', help='By default directories will be created in DEST for each job number in order to prevent '\
                                                                           'overpopulating pnfs directories. Using this flag will turn off that feature.')
-    optional_args.add_argument('--no_rename',   action='store_true', help='By default, output file we be renamed by prepending the input file name for uniqueness. '\
+    optional_args.add_argument('--no_rename',   action='store_true', help='By default output file we be renamed by prepending the input file name for uniqueness. '\
                                                                           'Using this flag will turn off that feature')                                                                        
+    optional_args.add_argument('--quick_copy',   action='store_true', help='By default output files are copied back at then end of all executions. '\
+                                                                          'Using this flag will copy out file right after they are created.')                                                                    
     optional_args.add_argument('--copy_out_script',                  help='Use the supplied COPY_OUT_SCRIPT (located on pnfs). Otherwise all files will be copied as is to the DEST.')
     optional_args.add_argument('--input_file',  action='append',     help='Copy an extra file to the grid node. You can use this multiple times.')
     optional_args.add_argument('--export',      action='append',     help='Export environment variable to the grid. It must be already set in your current environment. '\
@@ -194,7 +196,7 @@ if __name__=='__main__':
     job_control_args.add_argument('--all_sites',                                 action="store_true", help="Remove all specific site requirements.")
     job_control_args.add_argument('--onsite_only',                               action='store_true', help='Allow to run solely on onsite resources.')
     job_control_args.add_argument('--offsite_only',                              action='store_true', help='Allow to run solely on offsite resources.')
-    job_control_args.add_argument('--grid_al9',                                  action='store_true', help='Run in AL9 on the grid. By default, ANNIE submissions use the SL7 container.')
+    job_control_args.add_argument('--grid_sl7',                                  action='store_true', help='Run in SL7 on the grid. By default, ANNIE submissions use the local AL9 environment.')
 
     debug_args = parser.add_argument_group('Debugging options', 'These are optional arguments that are useful for debugging or testing')
     debug_args.add_argument('--print_jobsub',    action='store_true', help='Print jobsub command')
@@ -355,7 +357,7 @@ if __name__=='__main__':
     jobsub_opts += ["--lines '+FERMIHTC_GraceMemory=" + args.grace_memory + "'"]
     jobsub_opts += ["--lines '+FERMIHTC_GraceLifetime=" + args.grace_lifetime + "'"]
 
-    if not args.grid_al9:        
+    if args.grid_sl7:        
         jobsub_opts += ["--singularity-image /cvmfs/singularity.opensciencegrid.org/fermilab/fnal-wn-sl7:latest"]
         
     # expected lifetime can be an in (number of secs) or
@@ -520,6 +522,8 @@ if __name__=='__main__':
         annie_sam_wrap_opts += ['--rename_outputs']
     if not args.no_job_dirs:
         annie_sam_wrap_opts += ['--job_dirs']
+    if args.quick_copy:
+        annie_sam_wrap_opts += ['--quick_copy']
     if args.kill_after:
         annie_sam_wrap_opts += [ "--self_destruct_timer %d" % args.kill_after ]
 

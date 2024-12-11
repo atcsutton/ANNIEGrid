@@ -26,6 +26,7 @@ cpsc=""
 topDir=""
 rename_outputs=false
 job_dirs=false
+quick_copy=false
 self_destruct_timeout=""
 earlysources=""
 earlyscripts=""
@@ -81,6 +82,10 @@ Usage:
     -j|--job_dirs
         make destination directories based on the job numbers.
 
+    -q|--quick_copy
+        copy out files as soon as they're ready rather than waiting until the end of the job
+
+
     --self_destruct_timer seconds
         suicide if the executable runs more than seconds seconds;
         usually only use this if you have jobs that hang and you
@@ -99,7 +104,7 @@ Usage:
 EOF
 }
 
-VALID_ARGS=$(getopt -o hrjc:L:n:i:v:o: --long help,rename_outputs,job_dirs,config:,limit:,nevents:,input_file_config:,input_config_var:,copy_out_script:,self_destruct_timer:,earlysource:,earlyscript:,source:,prescript: -- "$@")
+VALID_ARGS=$(getopt -o hrjcq:L:n:i:v:o: --long help,rename_outputs,job_dirs,quick_copy,config:,limit:,nevents:,input_file_config:,input_config_var:,copy_out_script:,self_destruct_timer:,earlysource:,earlyscript:,source:,prescript: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1;
 fi
@@ -111,6 +116,7 @@ while [ : ]; do
 	-h|--help)              usage; exit 0;;
 	-r|--rename_outputs)    rename_outputs=true;  shift; continue;;
 	-j|--job_dirs)          job_dirs=true;        shift; continue;;
+	-q|--quick_copy)        quick_copy=true;      shift; continue;;
 	-c|--config)            conf="$2";    shift;  shift; continue;;
 	-L|--limit)             limit="$2";   shift;  shift; continue;;
 	-n|--nevents)           nevts="$2";   shift;  shift; continue;;
@@ -154,6 +160,11 @@ clean_it_up() {
     clean_dir "${outputDir}"
     clean_dir "${tempConfigDir}"
     clean_dir "${CONDOR_DIR_INPUT}"
+    clean_dir "${tmpDir}"
+
+    rmdir "${outputDir}"
+    rmdir "${tempConfigDir}"
+    rmdir "${tmpDir}"
 
     if [ -n "${consumer_id}" ]; then
 	echo ""
@@ -433,7 +444,10 @@ copy_out() {
 	    newdest=${DEST}/job_${PROCESS}
 	fi
 	echo "new destination will be ${newdest}"
-	ifdh mkdir_p ${newdest}
+
+	if [ ! -d "${newdest}" ]; then
+	    ifdh mkdir_p ${newdest}
+	fi
 	DEST=${newdest}
 	dest_updated=true
     fi
@@ -458,27 +472,8 @@ copy_out() {
 	    fi
 	    
 	    ifdh cp ${file} ${DEST}/${file}
+	    rm -f ${file}
 	done
-
-	#
-	# This isn't working right now
-	#
-	# for file in `ls`; do
-	#     if [ "${file}" = "renamed_files.txt" ]; then
-	# 	continue
-	#     fi
-	    
-	#     ifdh addOutputFile ${file}
-	# done
-
-	# echo "Copying back everything from /tmp"
-	# cd /tmp
-	# ls
-	# for file in `ls`; do
-	#     ifdh addOutputFile ${file}
-	# done
-	
-	# ifdh copyBackOutput "${DEST}"
     fi
 
 }
@@ -510,9 +505,9 @@ fi
 if [ -n "${nevts}" ]; then
     echo "Number of events per file is ${nevts}"
 else
-    echo "Number of events per file was not specified"
-    clean_it_up
-    exit 1
+    echo "Number of events per file was not specified. Using -1"
+    nevts="-1"
+
 fi
 
 if [ -n "${ifconf}" ]; then
@@ -620,8 +615,8 @@ done
 #setup ifdhc
 # new spack'ified methods
 source /cvmfs/fermilab.opensciencegrid.org/packages/common/spack/current/NULL/share/spack/setup-env.sh
-spack load --first ifdhc@2.7%gcc@11.3.1
-
+#spack load fife-utils@3.7.2
+spack load --first ifdhc@2.7.1%gcc@11.3.1
 
 
 #-------------------------------------------------------------------------------
@@ -629,14 +624,16 @@ spack load --first ifdhc@2.7%gcc@11.3.1
 #-------------------------------------------------------------------------------
 echo ""
 #ups active
+echo "spack loaded"
 spack find --loaded
 echo ""
+echo "env vars"
 printenv
 echo""
+echo "current working directory"
 pwd
 echo ""
 ls
-
 
 if [ -d "${INPUT_TAR_DIR_LOCAL}/configfiles" ]; then
     # top of tar dir is ToolAnalysis
@@ -715,6 +712,8 @@ outputDir="${topDir}/Outputs"
 mkdir Outputs
 modify_config_fullpath || break
 sed -i 's/^Inline .*$/Inline '${nevts}'/g' ${tempConfigDir}/ToolChainConfig
+tmpDir="${topDir}/tmp" 
+mkdir ${tmpDir}
 
 #-------------------------------------------------------------------------------
 # This is what we'll run inside of the container
@@ -722,7 +721,6 @@ sed -i 's/^Inline .*$/Inline '${nevts}'/g' ${tempConfigDir}/ToolChainConfig
 # the first ROOT_INCLUDE_PATH addition doesn't need the colon, but the second one does...
 #-------------------------------------------------------------------------------
 containercmd="\"cd /MyToolAnalysis && "
-containercmd+="ulimit -c unlimited && "
 containercmd+="source Setup.sh && "
 containercmd+="export ROOT_INCLUDE_PATH=\"'"'${ROOT_INCLUDE_PATH}'"'\"/MyToolAnalysis/DataModel && "
 containercmd+="export ROOT_INCLUDE_PATH=\"'"'${ROOT_INCLUDE_PATH}'"'\":/MyToolAnalysis/ToolDAQ/boost_1_66_0/boost/serialization/ && "
@@ -734,7 +732,7 @@ containercmd+="echo && echo \"LD_LIBRARY_PATH\""
 containercmd+="echo \"'"'${LD_LIBRARY_PATH}'"'\" && "
 containercmd+="/MyToolAnalysis/Analyse ${tempConfigDir}/ToolChainConfig\""
 
-command="singularity exec -B${topDir}:${topDir},${toolAnaDir}:/MyToolAnalysis /cvmfs/singularity.opensciencegrid.org/anniesoft/toolanalysis\:latest/ bash -c ${containercmd}"
+command="singularity exec -B${topDir}:${topDir},${toolAnaDir}:/MyToolAnalysis,${tmpDir}:/tmp /cvmfs/singularity.opensciencegrid.org/anniesoft/toolanalysis\:latest/ bash -c ${containercmd}"
 
 #-------------------------------------------------------------------------------
 # the loop to grab files from SAM and run over them
@@ -773,7 +771,14 @@ while [ "$res" = 0 ]; do
 
     if ${rename_outputs}; then
 	rename_output_files
-    fi 
+    fi
+
+    if ${quick_copy}; then
+	copy_out
+    fi
+
+    # clear out tmp area just in case
+    rm -rf ${tmpDir}/*
 done
 
 
