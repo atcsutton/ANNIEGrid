@@ -78,10 +78,9 @@ def remove_comments(src):
     return tokenize.untokenize(processed_tokens)
 
 def build_jobsub_cmd(jobsub_opts):
-    jobsub_cmd = 'jobsub_submit '
+    jobsub_cmd = 'jobsub_submit'
 
     # Add exported environment variables
-    jobsub_opts += ['--auth-methods \'token\' ']
     jobsub_opts += ['-e ' + export for export in export_to_annie_sam_wrap]
         
     # Add tarball and SAM wrapper script with its options

@@ -1,29 +1,35 @@
 #!/bin/bash 
 
-function setup_fnal_security() {
-    # Remove your old certificate for good measure
-    if [ -f /tmp/x509up_u$(id -u) ]; then
-        rm /tmp/x509up_u$(id -u)
-    fi
+# Old proxy method
+# function setup_fnal_security() {
+#     # Remove your old certificate for good measure
+#     if [ -f /tmp/x509up_u$(id -u) ]; then
+#         rm /tmp/x509up_u$(id -u)
+#     fi
 
-    # Get a new certificate
-    RETRY=0
-    while ! kx509 ; do
-        let RETRY=RETRY+1
-        if [ $RETRY -gt 3 ]; then
-            echo "Failed 3 times. Aborting." 
-            exit 1
-        fi
+#     # Get a new certificate
+#     RETRY=0
+#     while ! kx509 ; do
+#         let RETRY=RETRY+1
+#         if [ $RETRY -gt 3 ]; then
+#             echo "Failed 3 times. Aborting." 
+#             exit 1
+#         fi
 
-        echo "Failed to get a certificate. You probably need to kinit." 
-    done
+#         echo "Failed to get a certificate. You probably need to kinit." 
+#     done
 
-    # Check the VOMS proxy
-    if [ -z "`voms-proxy-info -all|grep "^attribute"`" ]; then
-        echo "No valid VOMS proxy found, getting one" 
-        voms-proxy-init -rfc -noregen -voms=fermilab:/fermilab/annie/Role=Analysis -valid 120:00 
-    fi
-}
+#     # Check the VOMS proxy
+#     if [ -z "`voms-proxy-info -all|grep "^attribute"`" ]; then
+#         echo "No valid VOMS proxy found, getting one" 
+#         voms-proxy-init -rfc -noregen -voms=fermilab:/fermilab/annie/Role=Analysis -valid 120:00 
+#     fi
+# }
+# New token method
+alias getToken='htgettoken -i annie --vaultserver htvaultprod.fnal.gov'
+alias seeToken='httokendecode'
+alias delToken='htdestroytoken'
+
 
 #source /cvmfs/fermilab.opensciencegrid.org/products/common/etc/setup
 #export PRODUCTS=${PRODUCTS}:/cvmfs/larsoft.opensciencegrid.org/products/
@@ -40,10 +46,12 @@ export SAM_EXPERIMENT=$EXPERIMENT
 export SAM_STATION=$EXPERIMENT
 export IFDH_BASE_URI="https://samannie.fnal.gov:8483/sam/annie/api"
 export SAM_WEB_HOST="samannie.fnal.gov"
+export JOBSUB_AUTH_METHODS="token"
 #export IFDH_FORCE="gsiftp"
 
 fullpath="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 export ANNIEGRIDUTILSDIR="$(dirname "${fullpath}")"
 export PATH=$PATH:"${ANNIEGRIDUTILSDIR}"
 
-setup_fnal_security
+#setup_fnal_security
+getToken
