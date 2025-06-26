@@ -270,7 +270,7 @@ update_input_file() {
     
     echo "Updating input file"
     # make sure we're in the tool analysis directory
-    cd /MyToolAnalysis/configfiles/${conf}/
+    cd ${toolAnaDir}/configfiles/${conf}/
 
     if [ -z "${ivar}" ]; then
 	# no input variable defined, assume that we can just overwrite the ifconf
@@ -281,8 +281,8 @@ update_input_file() {
 	sed -i 's~^'${ivar}' .*$~'${ivar}' '${fname}'~g' ${ifconf}
     fi
     
-    ls /MyToolAnalysis/configfiles/${conf}/${ifconf}
-    cat /MyToolAnalysis/configfiles/${conf}/${ifconf}
+    ls ${toolAnaDir}/configfiles/${conf}/${ifconf}
+    cat ${toolAnaDir}/configfiles/${conf}/${ifconf}
     echo "Done updating input file"
 
     cd -
