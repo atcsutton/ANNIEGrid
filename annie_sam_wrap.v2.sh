@@ -267,6 +267,7 @@ check_lifetime() {
 # Update the input file for the toolchain
 ################################################################################
 update_input_file() {
+    
     echo "Updating input file"
     # make sure we're in the tool analysis directory
     cd /MyToolAnalysis/configfiles/${conf}/
@@ -283,6 +284,8 @@ update_input_file() {
     ls /MyToolAnalysis/configfiles/${conf}/${ifconf}
     cat /MyToolAnalysis/configfiles/${conf}/${ifconf}
     echo "Done updating input file"
+
+    cd -
 }
 
 ################################################################################
@@ -385,6 +388,9 @@ copy_out() {
 	dest_updated=true
     fi
 
+    # Make sure we're in the top directory
+    cd ${topDir}
+    
     if [ -n "${cpsc}" ]; then
 	# use custom script
 	echo ""
@@ -632,7 +638,7 @@ echo "Consumer id: ${consumer_id}"
 #-------------------------------------------------------------------------------
 # Record all of the initial files in the top directory
 #-------------------------------------------------------------------------------
-cd $topDir
+cd ${topDir}
 touch initial_files.txt
 touch dont_rename.txt
 ls >> initial_files.txt
