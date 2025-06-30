@@ -16,7 +16,7 @@ uname -a
 ls /lib*/libc-*.so
 
 # initialize options with blank
-# tarball=""
+tarball=""
 conf=""
 limit=""
 nevts=""
@@ -55,11 +55,14 @@ Usage:
     -h|--help
         Print this message and exit
 
+    -t|--tarball ball
+        Your ToolAnalysis tarball
+
     -c|--config directory
         toolchain config to use
 	must be a directory in ToolAnalysis/config and have a symlink in the top directory
 
-    -L|--limit
+    -L|--limit NN
         Pass a number of files limit to establishProcess.
 
     -n|--nevents N
@@ -104,7 +107,7 @@ Usage:
 EOF
 }
 
-VALID_ARGS=$(getopt -o hrjcq:L:n:i:v:o: --long help,rename_outputs,job_dirs,quick_copy,config:,limit:,nevents:,input_file_config:,input_config_var:,copy_out_script:,self_destruct_timer:,earlysource:,earlyscript:,source:,prescript: -- "$@")
+VALID_ARGS=$(getopt -o hrjqc:t:L:n:i:v:o: --long help,rename_outputs,job_dirs,quick_copy,config:,tarball:,limit:,nevents:,input_file_config:,input_config_var:,copy_out_script:,self_destruct_timer:,earlysource:,earlyscript:,source:,prescript: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1;
 fi
@@ -118,12 +121,13 @@ while [ : ]; do
 	-j|--job_dirs)          job_dirs=true;        shift; continue;;
 	-q|--quick_copy)        quick_copy=true;      shift; continue;;
 	-c|--config)            conf="$2";    shift;  shift; continue;;
+	-t|--tarball)           tarball="$2"; shift;  shift; continue;;
 	-L|--limit)             limit="$2";   shift;  shift; continue;;
 	-n|--nevents)           nevts="$2";   shift;  shift; continue;;
 	-i|--input_file_config) ifconf="$2";  shift;  shift; continue;;
 	-v|--input_config_var)  ivar="$2";    shift;  shift; continue;;
 	-o|--copy_out_script)   cpsc="$2";    shift;  shift; continue;;
-	--self_destruct_timer) self_destruct_timeout=$2; shift; shift; continue;;
+	--self_destruct_timer) self_destruct_timeout=$2;       shift; shift; continue;;
 	--earlysource)   earlysources="$earlysources \"$2\"":; shift; shift; continue;;
 	--earlyscript)   earlyscripts="$earlyscripts \"$2\"":; shift; shift; continue;;
 	--source)        sources="$sources \"$2\"":;           shift; shift; continue;;
@@ -138,33 +142,25 @@ done
 # HOUSEKEEPING
 ################################################################################
 clean_dir() {
-    oldwd=`pwd`
-
     if [ -n "${1}" ]; then
 	echo ""
 	echo "${1} before cleaning:"
-	ls ${1}
+	ls -lrt ${1}
 	rm -rf ${1}/*
 	echo ""
 	echo "${1} after cleaning:"
-	ls ${1}
+	ls -lrt ${1}
     fi
     
-    cd ${oldwd}
+    cd -
 }
 
 clean_it_up() {
     echo ""
     echo "Cleaning up"
 
-    clean_dir "${outputDir}"
-    clean_dir "${tempConfigDir}"
     clean_dir "${CONDOR_DIR_INPUT}"
-    clean_dir "${tmpDir}"
-
-    rmdir "${outputDir}"
-    rmdir "${tempConfigDir}"
-    rmdir "${tmpDir}"
+    clean_dir "${toolAnaDir}"
 
     if [ -n "${consumer_id}" ]; then
 	echo ""
@@ -271,59 +267,13 @@ check_lifetime() {
 }
 
 ################################################################################
-# The typical ANNIE configfile setup forces us to run from the top directory
-# this means output files will be placed in that directory, 
-################################################################################
-modify_config_fullpath() {
-    oldwd=`pwd`
-
-    echo ""
-    echo "Modifying the config paths"
-    
-    # copy the toolchain configs to a new directory so we can edit them
-    cd ${topDir}
-    tempConfigDir="${topDir}/TempConfig"
-    mkdir ${tempConfigDir}
-    cd ${tempConfigDir}
-
-    cp -r ${toolAnaDir}/configfiles/${conf}/* .
-    
-    # remove any cases of ./ before the configfiles directory
-    sed -i 's/\.\/configfiles/configfiles/g' *
-
-    # insert the full path for this config 
-    # Have to use an alternate sed delimiter (~)
-    sed -i 's~configfiles/'${conf}/'~'${tempConfigDir}'/~g' *
-
-    # insert the full path for other configs that are referenced
-    sed -i 's~configfiles~/MyToolAnalysis/configfiles~g' *
-
-    echo ""
-    echo "Done modifying the config paths"
-    grep -r configfiles
-
-    echo ""
-    echo "contents of all config files"
-    for file in `ls`; do
-	extension="${file##*.}"
-	if [ "$extension" == "csv" ]; then continue; fi
-	echo ""
-	echo "${file}"
-	cat ${file}
-    done
-
-    cd ${oldwd}
-}
-
-################################################################################
 # Update the input file for the toolchain
 ################################################################################
 update_input_file() {
-    oldwd=`pwd`
-
-    echo "Updating input file"
+    
+    echo "Updating input file"    
     # make sure we're in the tool analysis directory
-    cd ${tempConfigDir}
+    cd ${toolAnaDir}/configfiles/${conf}/
 
     if [ -z "${ivar}" ]; then
 	# no input variable defined, assume that we can just overwrite the ifconf
@@ -334,28 +284,19 @@ update_input_file() {
 	sed -i 's~^'${ivar}' .*$~'${ivar}' '${fname}'~g' ${ifconf}
     fi
 
-    
-    ls ${tempConfigDir}/${ifconf}
-    cat ${tempConfigDir}/${ifconf}
+    ls -l ${ifconf}
+    cat ${ifconf}
     echo "Done updating input file"
 
-    cd ${oldwd}
+    cd -
 }
 
 ################################################################################
 # Rename outputs by prepending the input file name or job and file number
 ################################################################################
 rename_output_files() {
-    oldwd=`pwd`
-
     echo ""
     echo "Renaming output files"
-    cd ${outputDir}
-
-    if [ ! -f "renamed_files.txt" ]; then
-	touch renamed_files.txt
-	echo "renamed_files.txt" >> renamed_files.txt
-    fi
 
     # If using job dirs then prepend job and file number
     # otherwise prepend the input file name
@@ -374,21 +315,24 @@ rename_output_files() {
 
 	prefix="job${jobnum}_file${filenum}"
 	# just looking for files that have not been renamed
-	for outfile in `ls | grep -vFf renamed_files.txt`; do
+	for outfile in `ls | grep -vFf dont_rename.txt`; do
+	    echo "mv ${outfile} ${prefix}.${outfile}"
 	    mv ${outfile} ${prefix}.${outfile}
-	    echo ${prefix}.${outfile} >> renamed_files.txt
+	    echo ${prefix}.${outfile} >> dont_rename.txt
+	    echo
 	done
 	
     else
 	prefix=`basename ${fname}`	
 	# just looking for files that have not been renamed
-	for outfile in `ls | grep -vFf renamed_files.txt`; do
+	for outfile in `ls | grep -vFf dont_rename.txt`; do
+	    echo "mv ${outfile} ${prefix}.${outfile}"
 	    mv ${outfile} ${prefix}.${outfile}
-	    echo ${prefix}.${outfile} >> renamed_files.txt
+	    echo ${prefix}.${outfile} >> dont_rename.txt
+	    echo
 	done
     fi
 
-    cd ${oldpwd}
 }
 
 ################################################################################
@@ -452,6 +396,13 @@ copy_out() {
 	dest_updated=true
     fi
 
+    # Make sure we're in the Tool Analysis Directory
+    cd ${toolAnaDir}
+    echo 
+    echo "Files in ${toolAnaDir}:"
+    ls -lrt
+    echo   
+    
     if [ -n "${cpsc}" ]; then
 	# use custom script
 	echo ""
@@ -461,21 +412,14 @@ copy_out() {
     else
 	# otherwise just copy everything
 	echo ""
-	echo "Copying back everything from ${outputDir} to ${DEST}"
+	echo "Copying back all new things from ${toolAnaDir} to ${DEST}"
         
-	cd ${outputDir}
-	ls
-
-	for file in `ls`; do
-	    if [ "${file}" = "renamed_files.txt" ]; then
-		continue
-	    fi
-	    
-	    ifdh cp ${file} ${DEST}/${file}
-	    rm -f ${file}
+	for outfile in `ls | grep -vFf initial_files.txt`; do
+	    echo "ifdh cp ${outfile} ${DEST}/${file}"
+	    ifdh cp ${outfile} ${DEST}/${outfile}
+	    rm -f ${outfile}
 	done
     fi
-
 }
 
 
@@ -634,27 +578,40 @@ echo "current working directory"
 pwd
 echo ""
 ls
+echo ""
 
-if [ -d "${INPUT_TAR_DIR_LOCAL}/configfiles" ]; then
-    # top of tar dir is ToolAnalysis
-    toolAnaDir=${INPUT_TAR_DIR_LOCAL}
-else
-    testDir=`ls ${INPUT_TAR_DIR_LOCAL}`
-    if [ -d "${INPUT_TAR_DIR_LOCAL}/${testDir}/configfiles" ]; then
-	toolAnaDir=${INPUT_TAR_DIR_LOCAL}/${testDir}
-    else
-	clean_it_up
-	echo ""
-	echo "Your tar is weird. It's best to tar from within your ToolAnalysis directory."
-	exit 9
-    fi
+#-------------------------------------------------------------------------------
+# Setup the top and tool analysis directories
+#-------------------------------------------------------------------------------
+topDir=$_CONDOR_JOB_IWD
+cd ${topDir}
+toolAnaDir=${topDir}/MyToolAnalysis
+mkdir ${toolAnaDir}
+
+echo "topDir is: ${topDir}"
+echo "toolAnaDir is: ${toolAnaDir}"
+echo ""
+
+echo "Files in CONDOR_DIR_INPUT: ${CONDOR_DIR_INPUT}"
+ls ${CONDOR_DIR_INPUT}
+echo ""
+if [ ! -f "${CONDOR_DIR_INPUT}/${tarball}" ]; then
+    echo "${CONDOR_DIR_INPUT}/${tarball} was not found. Exiting."
+    clean_it_up 
+    exit $?
 fi
 
+echo "Untarring ${CONDOR_DIR_INPUT}/${tarball} to ${topDir}/MyToolAnalysis"
+tar -zxf ${CONDOR_DIR_INPUT}/${tarball} -C ${toolAnaDir}
+ls -l
 echo ""
-echo "${toolAnaDir}"
-ls  ${toolAnaDir}
 
-topDir=$_CONDOR_JOB_IWD
+if [ ! -d "${toolAnaDir}/configfiles" ]; then
+    echo ""
+    echo "Your tar is weird. It's best to tar from within your ToolAnalysis directory."
+    clean_it_up
+    exit $?
+fi
 
 
 #------------------------------------------------------------------------------
@@ -705,13 +662,14 @@ done
 echo "Consumer id: ${consumer_id}"
 
 #-------------------------------------------------------------------------------
-# Setup the output directory, adjust config path, and set nevents
+# Record all of the initial files in the Tool Analysis directory and set nevts
 #-------------------------------------------------------------------------------
-cd $topDir
-outputDir="${topDir}/Outputs"
-mkdir Outputs
-modify_config_fullpath || break
-sed -i 's/^Inline .*$/Inline '${nevts}'/g' ${tempConfigDir}/ToolChainConfig
+cd ${toolAnaDir}
+touch initial_files.txt
+touch dont_rename.txt
+ls >> initial_files.txt
+ls >> dont_rename.txt
+sed -i 's/^Inline .*$/Inline '${nevts}'/g' ${toolAnaDir}/configfiles/${conf}/ToolChainConfig
 tmpDir="${topDir}/tmp" 
 mkdir ${tmpDir}
 
@@ -725,12 +683,11 @@ containercmd+="source Setup.sh && "
 containercmd+="export ROOT_INCLUDE_PATH=\"'"'${ROOT_INCLUDE_PATH}'"'\"/MyToolAnalysis/DataModel && "
 containercmd+="export ROOT_INCLUDE_PATH=\"'"'${ROOT_INCLUDE_PATH}'"'\":/MyToolAnalysis/ToolDAQ/boost_1_66_0/boost/serialization/ && "
 containercmd+="export ROOT_INCLUDE_PATH=\"'"'${ROOT_INCLUDE_PATH}'"'\":/MyToolAnalysis/ToolDAQ/boost_1_66_0/install/include/ && "
-containercmd+="cd ${outputDir} && "
 containercmd+="echo && echo \"ROOT_INCLUDE_PATH\" "
 containercmd+="echo \"'"'${ROOT_INCLUDE_PATH}'"'\" && "
 containercmd+="echo && echo \"LD_LIBRARY_PATH\""
 containercmd+="echo \"'"'${LD_LIBRARY_PATH}'"'\" && "
-containercmd+="/MyToolAnalysis/Analyse ${tempConfigDir}/ToolChainConfig\""
+containercmd+="/MyToolAnalysis/Analyse configfiles/${conf}/ToolChainConfig\""
 
 command="singularity exec -B${topDir}:${topDir},${toolAnaDir}:/MyToolAnalysis,${tmpDir}:/tmp /cvmfs/singularity.opensciencegrid.org/anniesoft/toolanalysis\:latest/ bash -c ${containercmd}"
 
@@ -776,9 +733,6 @@ while [ "$res" = 0 ]; do
     if ${quick_copy}; then
 	copy_out
     fi
-
-    # clear out tmp area just in case
-    rm -rf ${tmpDir}/*
 done
 
 
@@ -788,8 +742,6 @@ done
 if [ "${res}" != "0" ]; then
     echo "ls /var/lib/systemd/coredump/"
     ls /var/lib/systemd/coredump/
-    echo "ls /tmp"
-    ls -lrth /tmp
 
     copy_out
     clean_it_up

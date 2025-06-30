@@ -84,7 +84,8 @@ def build_jobsub_cmd(jobsub_opts):
     jobsub_opts += ['-e ' + export for export in export_to_annie_sam_wrap]
         
     # Add tarball and SAM wrapper script with its options
-    jobsub_opts += ['--tar_file_name dropbox://' + args.tarball]
+    #jobsub_opts += ['--tar_file_name dropbox://' + args.tarball]
+    jobsub_opts += ['-f dropbox://' + args.tarball]
     jobsub_opts += ['file://' + annie_sam_wrap_cmd]
     jobsub_opts += [' ' + ' '.join(annie_sam_wrap_opts)]
 
@@ -510,7 +511,8 @@ if __name__=='__main__':
                             group='annie', station=sam_station)        
 
     os.putenv("SAM_PROJECT_NAME",project_name)
-        
+
+    annie_sam_wrap_opts += ['--tarball %s' %os.path.basename(args.tarball)]
     annie_sam_wrap_opts += ['--config %s' %args.config]
     annie_sam_wrap_opts += ['--input_file_config %s' %args.input_file_config]
     annie_sam_wrap_opts += ['--nevents "%s"' %args.nevents]
